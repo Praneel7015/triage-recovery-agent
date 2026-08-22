@@ -3,7 +3,7 @@ import { drizzle } from "drizzle-orm/better-sqlite3";
 import * as schema from "./schema";
 import path from "path";
 
-const dbPath = path.resolve(process.cwd(), process.env.DATABASE_URL ?? "./triage.db");
+const dbPath = path.resolve(/*turbopackIgnore: true*/ process.cwd(), process.env.DATABASE_URL ?? "./triage.db");
 const sqlite = new Database(dbPath);
 
 // Enable WAL mode for concurrent reads
