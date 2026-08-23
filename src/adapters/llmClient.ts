@@ -17,8 +17,8 @@ export interface LlmResult<T> {
   attempts: number;
 }
 
-const TIMEOUT_MS     = 20_000;
-const MAX_ATTEMPTS   = 3;
+const TIMEOUT_MS     = 12_000;
+const MAX_ATTEMPTS   = 2;
 const MIN_GAP_MS     = 400;    // spacing between calls to stay under provider TPM
 const MAX_BACKOFF_MS = 15_000;
 
@@ -88,7 +88,6 @@ export async function chatJSON<T = Record<string, unknown>>(
             temperature: 0,
             // Widen the budget on each retry, since truncation is the common failure.
             max_tokens: (opts.maxTokens ?? DEFAULT_MAX_TOKENS) * attempt,
-            response_format: { type: "json_object" },
             messages,
           }),
           signal: controller.signal,
@@ -105,12 +104,6 @@ export async function chatJSON<T = Record<string, unknown>>(
 
         if (!res.ok) {
           const body = await res.text();
-          // A 400 here is usually a truncated JSON body rather than a bad prompt,
-          // so retry once with more room before giving up on the model.
-          if (res.status === 400 && /json/i.test(body) && attempt < MAX_ATTEMPTS) {
-            lastReason = `HTTP 400 (invalid/truncated JSON) — retrying with a larger token budget.`;
-            continue;
-          }
           return { data: null, failed: true, reason: `HTTP ${res.status}: ${summarise(body)}`, attempts: attempt };
         }
 
