@@ -57,6 +57,8 @@ export interface Diagnosis {
   /** Why the model was not used, when it wasn't. Surfaced in the eval so a
    *  silently degraded model does not masquerade as a working one. */
   llmFallbackReason?: string;
+  /** LLM-drafted WhatsApp/SMS outreach copy, if the model was called and succeeded. */
+  outreachCopy?: string;
   signals: string[];
   auditTrail: AuditEntry[];
 }
@@ -115,6 +117,7 @@ export async function diagnose(c: CaseInput): Promise<Diagnosis> {
   let policyOverride = false;
   let llmProposed: FailureCause | undefined;
   let llmFallbackReason: string | undefined;
+  let outreachCopy: string | undefined;
 
   if (!needsInterpretation(cls)) {
     return {
@@ -156,6 +159,7 @@ export async function diagnose(c: CaseInput): Promise<Diagnosis> {
     llmUsed = true;
     llmProposed = llm.cause;
     narrative = llm.narrative || narrative;
+    outreachCopy = llm.outreachCopy || undefined;
 
     if (llm.cause === cls.cause) {
       confidence = Math.max(confidence, llm.confidence);
@@ -190,6 +194,7 @@ export async function diagnose(c: CaseInput): Promise<Diagnosis> {
     taxonomyCause: cls.cause, taxonomyConfidence: cls.confidence,
     llmProposedCause: llmProposed,
     llmUsed, llmFallback, policyOverride, llmFallbackReason,
+    outreachCopy,
     signals: cls.signals, auditTrail: audit,
   };
 }

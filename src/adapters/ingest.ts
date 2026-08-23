@@ -3,6 +3,8 @@ import { cases, auditLog } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import { classifyCause } from "@/engine/taxonomy";
+import { runAgent } from "@/engine/agent";
+import { createPaymentLink } from "@/adapters/razorpay";
 
 interface RazorpayPaymentEntity {
   id?: string;
@@ -113,4 +115,105 @@ export function ingestFailedPayment(
   }).run();
 
   return caseId;
+}
+
+/**
+ * Runs the agent on a freshly ingested live case: diagnoses the failure, selects
+ * the first action, updates the case record, and creates a Razorpay Payment Link
+ * when the recommended action requires one. Runs async so the webhook responds
+ * immediately — errors are logged but never re-thrown.
+ */
+export async function kickLiveCase(caseId: string): Promise<void> {
+  const c = db.select().from(cases).where(eq(cases.id, caseId)).get();
+  if (!c) return;
+
+  const input = {
+    id: c.id,
+    customerId: c.customerId,
+    customerName: c.customerName,
+    customerPhone: c.customerPhone ?? undefined,
+    customerEmail: c.customerEmail ?? undefined,
+    amountPaise: c.amountPaise,
+    currency: c.currency,
+    paymentMethod: c.paymentMethod,
+    subscriptionId: c.subscriptionId ?? undefined,
+    subscriptionState: c.subscriptionState ?? undefined,
+    errorCode: c.errorCode ?? undefined,
+    errorReason: c.errorReason ?? undefined,
+    errorSource: c.errorSource ?? undefined,
+    errorStep: c.errorStep ?? undefined,
+    errorDescription: c.errorDescription ?? undefined,
+    retryCount: c.retryCount,
+    touchCount: c.touchCount,
+    isDnd: c.isDnd,
+    hasConsented: c.hasConsented,
+    bankOutageActive: c.bankOutageActive,
+    promiseToPay: c.promiseToPay ?? undefined,
+    salaryWindowHint: c.salaryWindowHint ?? undefined,
+  };
+
+  const now = Math.floor(Date.now() / 1000);
+
+  try {
+    const result = await runAgent(input);
+
+    db.update(cases).set({
+      cause: result.cause as any,
+      diagnosisNarrative: result.diagnosisNarrative,
+      actionTaken: result.action as any,
+      stopCode: (result.stopCode ?? null) as any,
+      status: result.blocked ? "open" : "in_progress",
+      confidenceScore: result.confidenceScore,
+      llmCalls: result.llmUsed ? 1 : 0,
+      llmFallbacks: result.llmFallback ? 1 : 0,
+      policyOverrides: result.policyOverride ? 1 : 0,
+      updatedAt: now,
+    }).where(eq(cases.id, caseId)).run();
+
+    for (const e of result.auditTrail) {
+      db.insert(auditLog).values({
+        id: randomUUID(), caseId, ts: now,
+        actor: e.actor, event: e.event, detail: e.detail,
+        llmUsed: e.llmUsed ?? false,
+        llmFallback: e.llmFallback ?? false,
+        policyOverride: e.policyOverride ?? false,
+      }).run();
+    }
+
+    const linksActions = new Set([
+      "send_one_time_payment_link",
+      "send_method_update_link",
+    ]);
+
+    if (!result.blocked && linksActions.has(result.action) && c.amountPaise >= 100) {
+      const link = await createPaymentLink({
+        caseId: c.id,
+        customerId: c.customerId,
+        customerName: c.customerName,
+        customerEmail: c.customerEmail,
+        customerPhone: c.customerPhone,
+        amountPaise: c.amountPaise,
+        description: result.diagnosisNarrative ?? "Payment recovery",
+        expireAfterSeconds: 7 * 24 * 60 * 60,
+      });
+
+      db.update(cases).set({
+        razorpayPaymentLinkId: link.id,
+        razorpayPaymentLinkUrl: link.short_url,
+        updatedAt: now,
+      }).where(eq(cases.id, caseId)).run();
+
+      db.insert(auditLog).values({
+        id: randomUUID(), caseId, ts: now,
+        actor: "executor", event: "payment_link_created",
+        detail: `Auto-created Razorpay Payment Link: ${link.short_url}`,
+      }).run();
+    }
+  } catch (err: any) {
+    db.insert(auditLog).values({
+      id: randomUUID(), caseId, ts: now,
+      actor: "executor", event: "kick_failed",
+      detail: `Auto-campaign failed: ${err.message}`,
+    }).run();
+  }
 }

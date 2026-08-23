@@ -3,8 +3,9 @@ import { db } from "@/db/client";
 import { cases, auditLog } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { verifyWebhookSignature } from "@/adapters/razorpay";
-import { ingestFailedPayment } from "@/adapters/ingest";
+import { ingestFailedPayment, kickLiveCase } from "@/adapters/ingest";
 import { randomUUID } from "crypto";
+import crypto from "crypto";
 import { migrate } from "@/db/migrate";
 
 migrate();
@@ -34,6 +35,7 @@ export async function POST(request: Request) {
   // ── Ingest new failures into the case store ───────────────────────────────
   if (event === "payment.failed" && !caseId) {
     caseId = ingestFailedPayment(paymentEntity, event, subscriptionEntity) ?? undefined;
+    if (caseId) void kickLiveCase(caseId);
   }
 
   if (event === "subscription.pending" && subscriptionEntity?.id) {
@@ -45,6 +47,7 @@ export async function POST(request: Request) {
     };
     if (!caseId) {
       caseId = ingestFailedPayment(pendingPayment, event, subscriptionEntity) ?? undefined;
+      if (caseId) void kickLiveCase(caseId);
     }
   }
 
@@ -79,10 +82,29 @@ export async function GET(request: Request) {
   const url     = new URL(request.url);
   const caseId  = url.searchParams.get("case_id");
   const status  = url.searchParams.get("razorpay_payment_link_status");
+  const linkId  = url.searchParams.get("razorpay_payment_link_id");
+  const payId   = url.searchParams.get("razorpay_payment_id");
+  const sig     = url.searchParams.get("razorpay_signature");
+
+  // Verify the callback using the Razorpay signature on the query params.
+  if (linkId && payId && sig) {
+    const expected = crypto
+      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET ?? "")
+      .update(`${linkId}|${payId}`)
+      .digest("hex");
+    if (!crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(sig))) {
+      return NextResponse.redirect(new URL(`/cases/${caseId ?? ""}`, request.url));
+    }
+  }
 
   if (caseId && status === "paid") {
     const now = Math.floor(Date.now() / 1000);
     db.update(cases).set({ status: "recovered", resolvedAt: now, updatedAt: now }).where(eq(cases.id, caseId)).run();
+    db.insert(auditLog).values({
+      id: randomUUID(), caseId, ts: now,
+      actor: "webhook", event: "payment_received",
+      detail: "Payment link callback (GET): status=paid. Case marked recovered.",
+    }).run();
   }
 
   return NextResponse.redirect(new URL(`/cases/${caseId ?? ""}`, request.url));

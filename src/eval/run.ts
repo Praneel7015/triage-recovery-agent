@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { readFileSync } from "fs";
+import { readFileSync, writeFileSync } from "fs";
 import { runCampaign, type CampaignResult } from "@/engine/sequencer";
 import { runNaiveCampaign, type NaiveResult } from "@/engine/naive";
 import { report, formatRupees, type EconomicsReport } from "@/engine/economics";
@@ -68,6 +68,10 @@ async function main() {
   };
   console.log("\n── JSON ────────────────────────────────────────────────────────");
   console.log(JSON.stringify(out, null, 2));
+
+  const outPath = "./data/last-eval.json";
+  writeFileSync(outPath, JSON.stringify(out, null, 2), "utf-8");
+  console.log(`\n── Saved to ${outPath}`);
 }
 
 // ─── Summarisers ─────────────────────────────────────────────────────────────

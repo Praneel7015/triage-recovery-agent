@@ -141,6 +141,7 @@ export const campaignSteps = sqliteTable("campaign_steps", {
   intentMethod: text("intent_method"), // llm | keyword
   promiseDate: text("promise_date"),
   voiceScript: text("voice_script"),
+  outreachCopy: text("outreach_copy"),
 });
 
 // ─── Audit log ───────────────────────────────────────────────────────────────
@@ -191,6 +192,7 @@ export const batchRuns = sqliteTable("batch_runs", {
   // ── additional compliance counters ────────────────────────────────────────
   ignoredOptOuts: integer("ignored_opt_outs").notNull().default(0),
   outageContacts: integer("outage_contacts").notNull().default(0),
+  illegalRecoveredPaise: integer("illegal_recovered_paise").notNull().default(0),
   // ── conversation + campaign shape ─────────────────────────────────────────
   repliesReceived: integer("replies_received").notNull().default(0),
   intentExtractions: integer("intent_extractions").notNull().default(0),

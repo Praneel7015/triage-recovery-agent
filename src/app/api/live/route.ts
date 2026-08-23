@@ -18,9 +18,22 @@ export async function POST(request: Request) {
   let caseId: string | undefined;
 
   try {
-    const body = await request.json();
-    caseId = body?.caseId as string | undefined;
-    if (!caseId) return NextResponse.json({ error: "caseId required" }, { status: 400 });
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: "Request body must be JSON" }, { status: 400 });
+    }
+
+    if (!body || typeof body !== "object") {
+      return NextResponse.json({ error: "caseId required" }, { status: 400 });
+    }
+
+    caseId = (body as Record<string, unknown>).caseId as string | undefined;
+    if (!caseId || typeof caseId !== "string" || caseId.trim() === "") {
+      return NextResponse.json({ error: "caseId must be a non-empty string" }, { status: 400 });
+    }
+    caseId = caseId.trim();
 
     const c = db.select().from(cases).where(eq(cases.id, caseId)).get();
     if (!c) return NextResponse.json({ error: "Case not found" }, { status: 404 });

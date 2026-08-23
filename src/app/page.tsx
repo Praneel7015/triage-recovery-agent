@@ -15,6 +15,7 @@ interface BatchRun {
   touchesSent: number;
   stopRuleHits: number;
   illegalRetries: number;
+  illegalRecoveredPaise: number;
   dndViolations: number;
   ignoredOptOuts: number;
   outageContacts: number;
@@ -261,7 +262,7 @@ export default function LedgerPage() {
             </div>
             <p style={{ margin: "1rem 0 0", fontSize: "0.82rem", color: "var(--cream)" }}>
               Naive dunning recovers more gross rupees ({rupees(naive.amountRecoveredPaise)}) by messaging everyone —
-              but {rupees(naive.illegalRetries > 0 ? naive.amountRecoveredPaise * 0.008 : 0)} cannot be banked after rule breaks.
+              but {rupees(naive.illegalRecoveredPaise)} cannot be banked after rule breaks.
               Triage uses {naive.touchesSent - triage.touchesSent} fewer touches and honours every stop rule.
             </p>
           </section>

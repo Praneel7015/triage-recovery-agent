@@ -25,6 +25,8 @@ export interface CampaignStep {
   intent?: ExtractedIntent;
   /** Populated for voice steps so the UI can speak it aloud. */
   voiceScript?: string;
+  /** LLM-drafted WhatsApp/SMS copy for this step, when the model was called during diagnosis. */
+  outreachCopy?: string;
 }
 
 export interface CampaignResult {
@@ -264,6 +266,8 @@ export async function runCampaign(c: CaseInput, opts: { holdoutFraction?: number
       outcome: outcome.recovered ? "recovered" : "no_response",
       outcomeReason: outcome.simulatedReason,
       voiceScript,
+      // Attach the LLM's outreach copy to the first step only.
+      outreachCopy: stepIndex === 0 ? (diag.outreachCopy ?? undefined) : undefined,
     };
 
     audit.push({

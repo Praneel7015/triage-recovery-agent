@@ -1,3 +1,6 @@
+import { CAUSE_LABELS } from "@/engine/taxonomy";
+import { ACTION_LABELS } from "@/engine/policy";
+
 export function rupees(paise: number, opts?: { compact?: boolean }) {
   const n = paise / 100;
   if (opts?.compact && Math.abs(n) >= 100_000) {
@@ -17,12 +20,12 @@ export function pp(n: number) {
 
 export function labelCause(cause: string | null) {
   if (!cause) return "Unknown";
-  return cause.replace(/_/g, " ");
+  return CAUSE_LABELS[cause as keyof typeof CAUSE_LABELS] ?? cause.replace(/_/g, " ");
 }
 
 export function labelAction(action: string | null) {
   if (!action) return "—";
-  return action.replace(/_/g, " ");
+  return ACTION_LABELS[action as keyof typeof ACTION_LABELS] ?? action.replace(/_/g, " ");
 }
 
 export function labelStatus(status: string) {

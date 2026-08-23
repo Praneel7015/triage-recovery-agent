@@ -142,6 +142,7 @@ export function migrate() {
     "relative_lift_pct REAL NOT NULL DEFAULT 0",
     "ignored_opt_outs INTEGER NOT NULL DEFAULT 0",
     "outage_contacts INTEGER NOT NULL DEFAULT 0",
+    "illegal_recovered_paise INTEGER NOT NULL DEFAULT 0",
     "replies_received INTEGER NOT NULL DEFAULT 0",
     "intent_extractions INTEGER NOT NULL DEFAULT 0",
     "intent_accuracy_pct REAL NOT NULL DEFAULT 0",
@@ -150,6 +151,7 @@ export function migrate() {
   ]);
 
   addColumns("audit_log", ["day INTEGER"]);
+  addColumns("campaign_steps", ["outreach_copy TEXT"]);
 }
 
 function addColumns(table: string, defs: string[]) {

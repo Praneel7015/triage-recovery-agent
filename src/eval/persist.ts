@@ -155,6 +155,7 @@ function persistTriageCase(raw: CaseInput, r: CampaignResult, batchId: string) {
       intentMethod: s.intent?.method ?? null,
       promiseDate: s.intent?.promiseDate ?? null,
       voiceScript: s.voiceScript ?? null,
+      outreachCopy: s.outreachCopy ?? null,
     }).run();
   }
 }
@@ -300,6 +301,7 @@ function writeSummary(
       dndViolations:  treated.reduce((s, r) => s + r.dndViolations, 0),
       ignoredOptOuts: treated.reduce((s, r) => s + r.ignoredOptOuts, 0),
       outageContacts: treated.reduce((s, r) => s + r.outageContacts, 0),
+      illegalRecoveredPaise: treated.reduce((s, r) => s + r.illegalRecoveryPaise, 0),
       outreachCostPaise: cost,
       netRecoveredPaise: econ.netRecoveredPaise,
       roi: econ.roi,

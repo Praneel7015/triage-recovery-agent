@@ -21,6 +21,7 @@ export interface CampaignStepRow {
   intentMethod: string | null;
   promiseDate: string | null;
   voiceScript: string | null;
+  outreachCopy: string | null;
 }
 
 export function CampaignTimeline({ steps }: { steps: CampaignStepRow[] }) {
@@ -84,6 +85,14 @@ export function CampaignTimeline({ steps }: { steps: CampaignStepRow[] }) {
                   Voice script
                 </span>
                 {s.voiceScript}
+              </p>
+            )}
+            {s.outreachCopy && (
+              <p className="panel-inset" style={{ marginTop: "0.65rem", fontSize: "0.82rem" }}>
+                <span className="eyebrow" style={{ display: "block", marginBottom: "0.35rem" }}>
+                  AI outreach copy
+                </span>
+                {s.outreachCopy}
               </p>
             )}
           </article>
