@@ -621,12 +621,30 @@ select:focus-visible {
   border-bottom: 1px solid var(--border-on-roast);
   font-weight: 600;
   background: var(--roast);
+  position: sticky;
+  top: 0;
+  z-index: 1;
 }
 
 .registry td {
-  padding: 0.7rem 0.75rem;
-  border-bottom: 1px solid var(--border-on-roast);
+  padding: 0.68rem 0.75rem;
   vertical-align: middle;
+  /* no individual cell borders – row handles it */
+}
+
+/* Subtle separator between rows */
+.registry tbody tr {
+  border-bottom: 1px solid rgba(153, 177, 123, 0.1);
+  transition: background 0.1s;
+}
+
+.registry tbody tr:last-child {
+  border-bottom: none;
+}
+
+/* Hover: same-family tint, very subtle so the row doesn't float */
+.registry tbody tr:hover {
+  background: rgba(153, 177, 123, 0.07);
 }
 
 /* Status column: don't let the cell itself expand the pill */
@@ -637,10 +655,6 @@ select:focus-visible {
 .registry td:has(.status-open),
 .registry td:has(.status-escalated) {
   white-space: nowrap;
-}
-
-.registry tr:hover td {
-  background: var(--ink-dim);
 }
 
 .registry .amount {
