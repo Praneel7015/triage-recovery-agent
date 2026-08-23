@@ -15,6 +15,94 @@ export interface RazorpayErrorFields {
   paymentMethod?: string;
 }
 
+export interface Classification {
+  cause: FailureCause;
+  /** 1.0 = the error fields are unambiguous. Below 0.8 we ask the LLM. */
+  confidence: number;
+  /** True when signals point in different directions and need interpretation. */
+  conflicting: boolean;
+  /** Human-readable notes on what made this ambiguous. */
+  signals: string[];
+}
+
+const AMBIGUITY_THRESHOLD = 0.8;
+
+/**
+ * Classification with a confidence score.
+ *
+ * This is the routing decision for the LLM: unambiguous error fields are handled
+ * deterministically and cheaply, while genuinely conflicting signals get escalated
+ * to the model for interpretation. The LLM proposes a cause; policy still decides
+ * the action, and a confident taxonomy result overrides a disagreeing LLM.
+ */
+export function classifyWithConfidence(f: RazorpayErrorFields): Classification {
+  const cause    = classifyCause(f);
+  const reason   = (f.errorReason ?? "").toLowerCase();
+  const desc     = (f.errorDescription ?? "").toLowerCase();
+  const source   = (f.errorSource ?? "").toLowerCase();
+  const signals: string[] = [];
+
+  let confidence  = 1.0;
+  let conflicting = false;
+
+  // No error reason at all — nothing deterministic to go on.
+  if (!reason) {
+    confidence = 0.3;
+    signals.push("No error_reason present on the payment.");
+  }
+
+  // Generic gateway failures carry almost no diagnostic information.
+  if (reason === "payment_failed" || reason === "gateway_error" || reason === "server_error") {
+    confidence = Math.min(confidence, 0.45);
+    signals.push(`Generic failure reason "${reason}" does not identify a root cause.`);
+  }
+
+  // A customer "cancel" with no cancelled mandate is the classic false signal:
+  // a UPI app timeout and a deliberate back-press look identical in the payload.
+  if (
+    (reason === "payment_cancelled" || reason === "payment_cancelled_by_user") &&
+    f.subscriptionState !== "cancelled"
+  ) {
+    confidence = Math.min(confidence, 0.5);
+    conflicting = true;
+    signals.push(
+      "Reported as customer-cancelled but the mandate is not cancelled — " +
+      "may be a UPI/PSP timeout misreported as an abort.",
+    );
+  }
+
+  // Description contradicts the coded reason.
+  if (reason === "insufficient_funds" && (desc.includes("timeout") || desc.includes("not available"))) {
+    confidence = Math.min(confidence, 0.5);
+    conflicting = true;
+    signals.push("error_reason says insufficient funds but the description describes an outage.");
+  }
+  if (reason.includes("technical") && desc.includes("insufficient")) {
+    confidence = Math.min(confidence, 0.5);
+    conflicting = true;
+    signals.push("error_reason says technical error but the description mentions insufficient funds.");
+  }
+
+  // Bank-sourced errors attributed to the customer (or vice versa) are suspect.
+  if (source === "customer" && (reason.includes("bank") || reason.includes("technical"))) {
+    confidence = Math.min(confidence, 0.55);
+    conflicting = true;
+    signals.push("error_source is customer but the reason describes a bank/technical failure.");
+  }
+
+  if (cause === "unknown") {
+    confidence = Math.min(confidence, 0.35);
+    signals.push("No taxonomy rule matched these error fields.");
+  }
+
+  return { cause, confidence, conflicting, signals };
+}
+
+/** True when this case should be escalated to the LLM for interpretation. */
+export function needsInterpretation(c: Classification): boolean {
+  return c.confidence < AMBIGUITY_THRESHOLD || c.conflicting || c.cause === "unknown";
+}
+
 export function classifyCause(f: RazorpayErrorFields): FailureCause {
   const reason = (f.errorReason ?? "").toLowerCase();
   const source = (f.errorSource ?? "").toLowerCase();

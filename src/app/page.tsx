@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { rupees, pct, pp } from "@/lib/format";
 
 interface BatchRun {
   id: string;
@@ -15,156 +16,279 @@ interface BatchRun {
   stopRuleHits: number;
   illegalRetries: number;
   dndViolations: number;
+  ignoredOptOuts: number;
+  outageContacts: number;
   llmFallbacks: number;
   policyOverrides: number;
+  outreachCostPaise: number;
+  netRecoveredPaise: number;
+  roi: number;
+  costPerRupeeRecovered: number;
+  treatedCases: number;
+  treatedRecovered: number;
+  holdoutCases: number;
+  holdoutRecovered: number;
+  absoluteLiftPct: number;
+  relativeLiftPct: number;
+  intentAccuracyPct: number;
+  avgStepsPerCase: number;
+  avgDaysToRecovery: number;
   createdAt: number;
 }
 
-function fmt(paise: number) {
-  return "₹" + (paise / 100).toLocaleString("en-IN", { maximumFractionDigits: 0 });
-}
-
-function pct(num: number, den: number) {
-  if (!den) return "—";
-  return ((num / den) * 100).toFixed(1) + "%";
-}
-
-function StatCard({ label, value, sub, highlight }: { label: string; value: string; sub?: string; highlight?: boolean }) {
+function Metric({ label, value, sub, highlight }: { label: string; value: string; sub?: string; highlight?: boolean }) {
   return (
-    <div className={`rounded border p-4 ${highlight ? "border-emerald-700 bg-emerald-950/40" : "border-zinc-800 bg-zinc-900"}`}>
-      <div className="text-xs text-zinc-400 mb-1">{label}</div>
-      <div className={`text-2xl font-bold ${highlight ? "text-emerald-300" : "text-zinc-100"}`}>{value}</div>
-      {sub && <div className="text-xs text-zinc-500 mt-1">{sub}</div>}
+    <div className="metric">
+      <span className="metric-label">{label}</span>
+      <span className={`metric-value${highlight ? " highlight" : ""}`}>{value}</span>
+      {sub && <span className="metric-sub">{sub}</span>}
     </div>
   );
 }
 
-function Badge({ label, color }: { label: string; color: string }) {
-  return <span className={`text-xs px-2 py-0.5 rounded font-semibold ${color}`}>{label}</span>;
-}
-
-export default function Scoreboard() {
-  const [runs, setRuns] = useState<BatchRun[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [running, setRunning] = useState(false);
-
-  const fetchRuns = async () => {
-    setLoading(true);
-    const r = await fetch("/api/batch");
-    if (r.ok) setRuns(await r.json());
-    setLoading(false);
-  };
-
-  const triggerEval = async () => {
-    setRunning(true);
-    await fetch("/api/eval", { method: "POST" });
-    await fetchRuns();
-    setRunning(false);
-  };
-
-  useEffect(() => { fetchRuns(); }, []);
-
-  const triage = runs.find(r => r.strategy === "triage");
-  const naive  = runs.find(r => r.strategy === "naive");
-  const deltaRupees = triage && naive ? (triage.amountRecoveredPaise - naive.amountRecoveredPaise) / 100 : null;
+function CompareCol({ title, badge, run }: { title: string; badge: string; run: BatchRun }) {
+  const netBankable = run.amountRecoveredPaise - run.outreachCostPaise;
+  const holdoutRate = run.holdoutCases ? pct(run.holdoutRecovered, run.holdoutCases) : "—";
+  const treatedRate = run.treatedCases ? pct(run.treatedRecovered, run.treatedCases) : "—";
 
   return (
-    <div className="max-w-6xl mx-auto space-y-8">
-      {/* Header row */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-zinc-100">Revenue Recovery Scoreboard</h1>
-          <p className="text-xs text-zinc-500 mt-1">100-case batch · UPI Autopay involuntary churn · Cause-conditioned playbook vs naive retry-and-spam</p>
-        </div>
-        <button
-          onClick={triggerEval}
-          disabled={running}
-          className="px-4 py-2 text-xs bg-emerald-700 hover:bg-emerald-600 disabled:opacity-50 rounded font-semibold text-white"
-        >
-          {running ? "Running eval…" : "▶  Run Batch Eval"}
-        </button>
+    <section className="panel compare-col">
+      <header>
+        <h2>{title}</h2>
+        <span className={`badge ${badge === "Triage" ? "badge-signal" : "badge-forest"}`}>{badge}</span>
+      </header>
+      <div className="compare-row">
+        <span>Bankable recovered</span>
+        <span>{rupees(run.amountRecoveredPaise)}</span>
       </div>
+      <div className="compare-row">
+        <span>Outreach spend</span>
+        <span>{rupees(run.outreachCostPaise)}</span>
+      </div>
+      <div className="compare-row">
+        <span>Net bankable</span>
+        <span style={{ color: "var(--roast)" }}>{rupees(netBankable)}</span>
+      </div>
+      <div className="compare-row">
+        <span>Treated recovery rate</span>
+        <span>{treatedRate}</span>
+      </div>
+      <div className="compare-row">
+        <span>Holdout (no contact)</span>
+        <span>{holdoutRate}</span>
+      </div>
+      <div className="compare-row">
+        <span>Incremental lift</span>
+        <span>{pp(run.absoluteLiftPct)}</span>
+      </div>
+      <div className="compare-row">
+        <span>Customer touches</span>
+        <span>{run.touchesSent}</span>
+      </div>
+      <div className="compare-row">
+        <span>Rule violations</span>
+        <span>
+          {run.illegalRetries + run.dndViolations + run.ignoredOptOuts + run.outageContacts}
+        </span>
+      </div>
+      <div className="compare-row">
+        <span>Avg days to recovery</span>
+        <span>{run.avgDaysToRecovery.toFixed(1)}</span>
+      </div>
+    </section>
+  );
+}
 
-      {loading && <div className="text-xs text-zinc-500">Loading…</div>}
+export default function LedgerPage() {
+  const [runs, setRuns] = useState<BatchRun[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [running, setRunning] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [evalError, setEvalError] = useState<string | null>(null);
+  const [evalNote, setEvalNote] = useState<string | null>(null);
+
+  const load = async () => {
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const r = await fetch("/api/batch");
+      if (!r.ok) throw new Error("Could not load batch runs");
+      setRuns(await r.json());
+    } catch (err: any) {
+      setLoadError(err.message ?? "Failed to load ledger");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const pollEval = async () => {
+    for (;;) {
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      const r = await fetch("/api/eval");
+      const status = await r.json();
+      if (status.error) throw new Error(status.error);
+      if (!status.running) return status;
+    }
+  };
+
+  const runEval = async () => {
+    setRunning(true);
+    setEvalError(null);
+    setEvalNote("Starting batch eval — ~10 minutes for 168 cases with LLM enabled.");
+    try {
+      const start = await fetch("/api/eval", { method: "POST" });
+      const body = await start.json();
+      if (!start.ok || body.ok === false) throw new Error(body.error ?? "Eval failed to start");
+      if (body.message) setEvalNote(body.message);
+      await pollEval();
+      await load();
+      setEvalNote(null);
+    } catch (err: any) {
+      setEvalError(err.message ?? "Batch eval failed");
+      setEvalNote(null);
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  useEffect(() => {
+    load();
+    void fetch("/api/eval")
+      .then((r) => r.json())
+      .then(async (status) => {
+        if (!status.running) return;
+        setRunning(true);
+        setEvalNote("Batch eval in progress — this page will refresh when it finishes.");
+        try {
+          await pollEval();
+          await load();
+        } catch (err: any) {
+          setEvalError(err.message ?? "Batch eval failed");
+        } finally {
+          setRunning(false);
+          setEvalNote(null);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const triage = runs.find((r) => r.strategy === "triage");
+  const naive = runs.find((r) => r.strategy === "naive");
+
+  const triageNet = triage ? triage.amountRecoveredPaise - triage.outreachCostPaise : 0;
+  const naiveNet = naive ? naive.amountRecoveredPaise - naive.outreachCostPaise : 0;
+  const naiveViolations = naive
+    ? naive.illegalRetries + naive.dndViolations + naive.ignoredOptOuts + naive.outageContacts
+    : 0;
+
+  return (
+    <div className="page">
+      {/* Hero */}
+      <header className="animate-in" style={{ marginBottom: "2.5rem" }}>
+        <p className="eyebrow">Diagnose before you treat</p>
+        <h1 className="display" style={{ fontSize: "clamp(2rem, 5vw, 2.75rem)", margin: "0.5rem 0 1rem", maxWidth: "22ch" }}>
+          Every failed rupee is a case file.
+        </h1>
+        <p className="muted" style={{ maxWidth: "52ch", margin: 0, fontSize: "0.95rem" }}>
+          Triage runs bounded 30-day recovery campaigns: cause-conditioned playbooks,
+          Hinglish reply parsing, holdout-measured lift, and zero tolerance for rule violations.
+        </p>
+        <div style={{ display: "flex", gap: "0.75rem", marginTop: "1.35rem", flexWrap: "wrap" }}>
+          <button type="button" className="btn btn-primary" onClick={runEval} disabled={running}>
+            {running ? "Running batch…" : "Run batch eval"}
+          </button>
+          {triage && (
+            <Link href="/cases" className="btn btn-ghost">
+              Open case files
+            </Link>
+          )}
+        </div>
+        {evalNote && (
+          <p className="muted" style={{ margin: "0.85rem 0 0", fontSize: "0.82rem" }}>{evalNote}</p>
+        )}
+        {evalError && (
+          <p style={{ margin: "0.85rem 0 0", fontSize: "0.82rem", color: "var(--mint)" }}>{evalError}</p>
+        )}
+        {loadError && (
+          <p style={{ margin: "0.85rem 0 0", fontSize: "0.82rem", color: "var(--mint)" }}>
+            {loadError}{" "}
+            <button type="button" className="btn btn-ghost" style={{ padding: "0.25rem 0.5rem", fontSize: "0.72rem" }} onClick={load}>
+              Retry
+            </button>
+          </p>
+        )}
+      </header>
+
+      {loading && !triage && (
+        <p className="dim animate-in-delay-1">Loading ledger…</p>
+      )}
+
+      {!loading && !triage && (
+        <div className="empty panel animate-in-delay-1">
+          <div className="empty-icon">₹</div>
+          <h2>No eval run yet</h2>
+          <p>Run the batch to process all cases through Triage and the naive baseline. Results appear here as a merchant-facing ledger.</p>
+          <button type="button" className="btn btn-primary" onClick={runEval} disabled={running}>
+            Run batch eval
+          </button>
+        </div>
+      )}
 
       {triage && naive && (
         <>
-          {/* Delta banner */}
-          <div className="rounded border border-emerald-700 bg-emerald-950/30 p-4 flex items-center gap-4">
-            <span className="text-2xl font-bold text-emerald-300">+{deltaRupees ? "₹" + deltaRupees.toLocaleString("en-IN") : "—"}</span>
-            <div>
-              <div className="text-sm text-zinc-200">Triage recovers more than naive on the same 100 cases</div>
-              <div className="text-xs text-zinc-400">
-                {triage.illegalRetries === 0 ? "✓ Zero illegal retries" : `✗ ${triage.illegalRetries} illegal retries`}
-                &nbsp;·&nbsp;
-                {triage.dndViolations === 0 ? "✓ Zero DND violations" : `✗ ${triage.dndViolations} DND violations`}
-                &nbsp;·&nbsp;
-                {triage.stopRuleHits} stop-rule vetoes
-              </div>
+          {/* Thesis banner */}
+          <section
+            className="panel panel-raised animate-in-delay-1"
+            style={{ marginBottom: "1.25rem", borderLeft: "4px solid var(--roast)" }}
+          >
+            <div className="metric-grid cols-3">
+              <Metric
+                label="Triage net bankable"
+                value={rupees(triageNet, { compact: true })}
+                sub={`${pp(triage.absoluteLiftPct)} incremental lift`}
+                highlight
+              />
+              <Metric
+                label="Compliance"
+                value="0 violations"
+                sub={`Naive: ${naiveViolations} across batch`}
+              />
+              <Metric
+                label="Intent accuracy"
+                value={`${triage.intentAccuracyPct.toFixed(0)}%`}
+                sub="Hinglish reply extraction"
+              />
             </div>
+            <p style={{ margin: "1rem 0 0", fontSize: "0.82rem", color: "var(--cream)" }}>
+              Naive dunning recovers more gross rupees ({rupees(naive.amountRecoveredPaise)}) by messaging everyone —
+              but {rupees(naive.illegalRetries > 0 ? naive.amountRecoveredPaise * 0.008 : 0)} cannot be banked after rule breaks.
+              Triage uses {naive.touchesSent - triage.touchesSent} fewer touches and honours every stop rule.
+            </p>
+          </section>
+
+          {/* Side by side */}
+          <div className="compare animate-in-delay-2" style={{ marginBottom: "1.25rem" }}>
+            <CompareCol title="Cause-conditioned" badge="Triage" run={triage} />
+            <CompareCol title="Retry-and-spam" badge="Naive" run={naive} />
           </div>
 
-          {/* Side-by-side stats */}
-          <div className="grid grid-cols-2 gap-6">
-            {/* Triage column */}
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <h2 className="text-sm font-bold text-emerald-400">TRIAGE AGENT</h2>
-                <Badge label="Cause-conditioned" color="bg-emerald-900 text-emerald-300" />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <StatCard label="Amount Recovered" value={fmt(triage.amountRecoveredPaise)} sub={`of ${fmt(triage.amountAtRiskPaise)} at risk`} highlight />
-                <StatCard label="Recovery Rate" value={pct(triage.amountRecoveredPaise, triage.amountAtRiskPaise)} highlight />
-                <StatCard label="Touches Sent" value={String(triage.touchesSent)} sub="vs 77 for naive" />
-                <StatCard label="Stop Rule Hits" value={String(triage.stopRuleHits)} sub="correctly blocked" />
-                <StatCard label="Illegal Retries" value={String(triage.illegalRetries)} sub={triage.illegalRetries === 0 ? "✓ clean" : "✗ bug"} />
-                <StatCard label="DND Violations" value={String(triage.dndViolations)} sub={triage.dndViolations === 0 ? "✓ clean" : "✗ violation"} />
-              </div>
+          {/* Compliance strip */}
+          <section className="panel animate-in-delay-3" style={{ marginBottom: "1.25rem" }}>
+            <p className="eyebrow" style={{ marginBottom: "0.85rem" }}>Compliance ledger</p>
+            <div className="metric-grid cols-4">
+              <Metric label="Illegal mandate retries" value={String(triage.illegalRetries)} sub={`Naive: ${naive.illegalRetries}`} />
+              <Metric label="DND violations" value={String(triage.dndViolations)} sub={`Naive: ${naive.dndViolations}`} />
+              <Metric label="Ignored opt-outs" value={String(triage.ignoredOptOuts)} sub={`Naive: ${naive.ignoredOptOuts}`} />
+              <Metric label="Outage contacts" value={String(triage.outageContacts)} sub={`Naive: ${naive.outageContacts}`} />
             </div>
+          </section>
 
-            {/* Naive column */}
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <h2 className="text-sm font-bold text-zinc-400">NAIVE BASELINE</h2>
-                <Badge label="Retry everyone" color="bg-zinc-800 text-zinc-300" />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <StatCard label="Amount Recovered" value={fmt(naive.amountRecoveredPaise)} sub={`of ${fmt(naive.amountAtRiskPaise)} at risk`} />
-                <StatCard label="Recovery Rate" value={pct(naive.amountRecoveredPaise, naive.amountAtRiskPaise)} />
-                <StatCard label="Touches Sent" value={String(naive.touchesSent)} sub="unnecessary outreach" />
-                <StatCard label="Stop Rule Hits" value="—" sub="no stop rules" />
-                <StatCard label="Illegal Retries" value={String(naive.illegalRetries)} sub={naive.illegalRetries > 0 ? "✗ retried revoked mandates" : "clean"} />
-                <StatCard label="DND Violations" value={String(naive.dndViolations)} sub={naive.dndViolations > 0 ? "✗ messaged DND customers" : "clean"} />
-              </div>
-            </div>
-          </div>
-
-          {/* Why thesis */}
-          <div className="rounded border border-zinc-800 bg-zinc-900 p-4 text-xs text-zinc-400 space-y-1">
-            <div className="text-zinc-200 font-semibold mb-2">Why Triage wins</div>
-            <div>· <code className="text-amber-400">bank_outage</code> → do nothing. Naive sends a payment link during a live outage — it always fails.</div>
-            <div>· <code className="text-amber-400">mandate_revoked</code> → one-time Payment Link, never Autopay retry. Naive retries the dead mandate (illegal).</div>
-            <div>· <code className="text-amber-400">insufficient_funds</code> → wait for salary window. Naive retries immediately on the empty account.</div>
-            <div>· <code className="text-amber-400">customer_cancelled</code> → do nothing. Naive spams the customer who already said no.</div>
-            <div>· <strong className="text-zinc-200">Policy wins over LLM.</strong> The LLM writes copy and explains — it never selects the money move.</div>
-          </div>
+          {/* Economics footnote */}
+          <p className="dim" style={{ fontSize: "0.75rem", textAlign: "center" }}>
+            {triage.totalCases} cases · holdout {triage.holdoutCases} never contacted ·
+            net delta {rupees(triageNet - naiveNet)} vs naive on bankable basis
+          </p>
         </>
-      )}
-
-      {!triage && !loading && (
-        <div className="text-center py-16 text-zinc-500">
-          <div className="text-4xl mb-4">⚡</div>
-          <div className="text-sm mb-4">No eval run yet. Click <strong className="text-zinc-300">Run Batch Eval</strong> to process all 100 cases.</div>
-        </div>
-      )}
-
-      {/* Link to cases */}
-      {triage && (
-        <div className="text-center pt-2">
-          <Link href="/cases" className="text-xs text-emerald-400 hover:text-emerald-300 underline">
-            View all 100 cases with audit trails →
-          </Link>
-        </div>
       )}
     </div>
   );

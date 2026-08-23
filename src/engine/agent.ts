@@ -1,5 +1,5 @@
-import { classifyCause } from "./taxonomy";
-import { selectAction } from "./policy";
+import { classifyWithConfidence, needsInterpretation, type Classification } from "./taxonomy";
+import { selectStep, selectAction } from "./policy";
 import { checkStops } from "./stops";
 import type { FailureCause, RecoveryAction, StopCode } from "@/db/schema";
 
@@ -27,40 +27,48 @@ export interface CaseInput {
   bankOutageActive?: boolean;
   promiseToPay?: string | null;
   salaryWindowHint?: string | null;
+  /** B2B receivables lane. */
+  invoiceId?: string | null;
+  invoiceDueDate?: string | null;
+  agingDays?: number | null;
+  segment?: "subscription" | "checkout" | "b2b_invoice";
 }
 
 export interface AuditEntry {
-  actor: "agent" | "policy" | "stop_rule" | "executor" | "llm";
+  actor: "agent" | "policy" | "stop_rule" | "executor" | "llm" | "customer" | "webhook" | "naive";
   event: string;
   detail: string;
   llmUsed?: boolean;
   llmFallback?: boolean;
   policyOverride?: boolean;
+  day?: number;
 }
 
-export interface AgentResult {
+export interface Diagnosis {
   cause: FailureCause;
-  diagnosisNarrative: string;
-  action: RecoveryAction;
-  blocked: boolean;
-  stopCode?: StopCode;
-  stopReason?: string;
-  confidenceScore: number;
+  narrative: string;
+  confidence: number;
+  taxonomyCause: FailureCause;
+  taxonomyConfidence: number;
+  llmProposedCause?: FailureCause;
   llmUsed: boolean;
   llmFallback: boolean;
   policyOverride: boolean;
-  outreachCopy?: string;
+  /** Why the model was not used, when it wasn't. Surfaced in the eval so a
+   *  silently degraded model does not masquerade as a working one. */
+  llmFallbackReason?: string;
+  signals: string[];
   auditTrail: AuditEntry[];
 }
 
-// Lazy import so LLM module is only loaded if keys are configured
-async function tryLLM(c: CaseInput, taxonomyCause: FailureCause): Promise<{
-  cause: FailureCause;
-  narrative: string;
-  outreachCopy: string;
-  confidence: number;
-  fallback: boolean;
-} | null> {
+/**
+ * The LLM must be substantially more confident than the deterministic classifier
+ * before it is allowed to overturn a concrete taxonomy verdict. Below this bar,
+ * the taxonomy result stands and the disagreement is recorded as an override.
+ */
+const LLM_OVERTURN_THRESHOLD = 0.75;
+
+async function callLLM(c: CaseInput, taxonomyCause: FailureCause) {
   try {
     const { refineCause } = await import("@/adapters/llm");
     return await refineCause(c, taxonomyCause);
@@ -70,19 +78,17 @@ async function tryLLM(c: CaseInput, taxonomyCause: FailureCause): Promise<{
 }
 
 /**
- * Core agent loop: one case in, one AgentResult out.
- * The LLM only refines copy and clarifies unknown causes.
- * Policy selects the action. Stops can veto it.
- * If policy and LLM disagree, policy wins.
+ * Establishes the root cause of a failure.
+ *
+ * Unambiguous error fields are resolved deterministically and for free. Only cases
+ * with conflicting or missing signals reach the LLM, and even then the model's
+ * answer is advisory: it proposes a cause, never an action, and a confident
+ * taxonomy verdict beats a hesitant model.
  */
-export async function runAgent(c: CaseInput): Promise<AgentResult> {
+export async function diagnose(c: CaseInput): Promise<Diagnosis> {
   const audit: AuditEntry[] = [];
-  let llmUsed      = false;
-  let llmFallback  = false;
-  let policyOverride = false;
 
-  // ── Step 1: Taxonomy classification ─────────────────────────────────────
-  const taxonomyCause = classifyCause({
+  const cls: Classification = classifyWithConfidence({
     errorCode: c.errorCode,
     errorReason: c.errorReason,
     errorSource: c.errorSource,
@@ -96,119 +102,160 @@ export async function runAgent(c: CaseInput): Promise<AgentResult> {
   audit.push({
     actor: "agent",
     event: "taxonomy_classified",
-    detail: `Taxonomy mapped error to cause: ${taxonomyCause}`,
+    detail:
+      `Taxonomy: ${cls.cause} at ${(cls.confidence * 100).toFixed(0)}% confidence` +
+      (cls.signals.length ? ` — ${cls.signals.join(" ")}` : ""),
   });
 
-  // ── Step 2: LLM refinement (only for ambiguous cases) ───────────────────
-  let cause: FailureCause = taxonomyCause;
-  let diagnosisNarrative  = `Cause classified as "${taxonomyCause}" by deterministic taxonomy.`;
-  let outreachCopy        = "";
-  let confidenceScore     = 1.0;
+  let cause          = cls.cause;
+  let narrative      = `Classified as "${cls.cause}" from the Razorpay error fields.`;
+  let confidence     = cls.confidence;
+  let llmUsed        = false;
+  let llmFallback    = false;
+  let policyOverride = false;
+  let llmProposed: FailureCause | undefined;
+  let llmFallbackReason: string | undefined;
 
-  const needsLLM = taxonomyCause === "unknown";
+  if (!needsInterpretation(cls)) {
+    return {
+      cause, narrative, confidence,
+      taxonomyCause: cls.cause, taxonomyConfidence: cls.confidence,
+      llmUsed, llmFallback, policyOverride,
+      signals: cls.signals, auditTrail: audit,
+    };
+  }
 
-  if (needsLLM) {
-    const llmResult = await tryLLM(c, taxonomyCause);
-    if (llmResult) {
-      llmUsed     = true;
-      llmFallback = llmResult.fallback;
-      confidenceScore = llmResult.confidence;
+  audit.push({
+    actor: "agent",
+    event: "escalated_to_llm",
+    detail: cls.conflicting
+      ? "Signals conflict, so the payload needs interpretation rather than a lookup."
+      : "Error fields are too sparse for a deterministic verdict.",
+  });
 
-      if (!llmResult.fallback) {
-        // Check if LLM disagrees with a deterministic cause
-        if (llmResult.cause !== taxonomyCause && taxonomyCause !== "unknown") {
-          policyOverride = true;
-          audit.push({
-            actor: "agent",
-            event: "policy_override",
-            detail: `LLM suggested "${llmResult.cause}", but taxonomy determined "${taxonomyCause}". Policy wins.`,
-            llmUsed: true,
-            policyOverride: true,
-          });
-        } else {
-          cause = llmResult.cause;
-        }
-      } else {
-        llmFallback = true;
-        audit.push({
-          actor: "agent",
-          event: "llm_fallback",
-          detail: "LLM unavailable or timed out. Falling back to taxonomy result.",
-          llmUsed: true,
-          llmFallback: true,
-        });
-      }
-      diagnosisNarrative = llmResult.narrative || diagnosisNarrative;
-      outreachCopy       = llmResult.outreachCopy || "";
-    } else {
+  const llm = await callLLM(c, cls.cause);
+
+  if (!llm) {
+    llmFallback = true;
+    llmFallbackReason = "LLM adapter could not be loaded.";
+    audit.push({
+      actor: "agent", event: "llm_fallback", llmFallback: true,
+      detail: "LLM adapter unavailable. Proceeding on the taxonomy result alone.",
+    });
+  } else if (llm.fallback) {
+    llmUsed = true;
+    llmFallback = true;
+    llmFallbackReason = llm.fallbackReason ?? "unknown";
+    confidence = Math.min(confidence, 0.6);
+    audit.push({
+      actor: "llm", event: "llm_fallback", llmUsed: true, llmFallback: true,
+      detail: `Model unavailable (${llm.fallbackReason ?? "unknown reason"}). ` +
+              `Holding the taxonomy verdict "${cls.cause}" and lowering confidence.`,
+    });
+  } else {
+    llmUsed = true;
+    llmProposed = llm.cause;
+    narrative = llm.narrative || narrative;
+
+    if (llm.cause === cls.cause) {
+      confidence = Math.max(confidence, llm.confidence);
       audit.push({
-        actor: "agent",
-        event: "llm_fallback",
-        detail: "LLM not configured. Using taxonomy-only result.",
-        llmFallback: true,
+        actor: "llm", event: "llm_confirmed", llmUsed: true,
+        detail: `LLM agrees with the taxonomy (${llm.cause}) at ${(llm.confidence * 100).toFixed(0)}% confidence.`,
       });
-      llmFallback = true;
+    } else if (cls.cause !== "unknown" && llm.confidence < LLM_OVERTURN_THRESHOLD) {
+      // Model disagrees but is not confident enough to overturn a concrete verdict.
+      policyOverride = true;
+      audit.push({
+        actor: "policy", event: "policy_override", llmUsed: true, policyOverride: true,
+        detail:
+          `LLM proposed "${llm.cause}" at ${(llm.confidence * 100).toFixed(0)}% but taxonomy holds ` +
+          `"${cls.cause}". Below the ${LLM_OVERTURN_THRESHOLD * 100}% overturn bar, so the ` +
+          `deterministic verdict stands.`,
+      });
+    } else {
+      cause = llm.cause;
+      confidence = llm.confidence;
+      audit.push({
+        actor: "llm", event: "llm_reclassified", llmUsed: true,
+        detail:
+          `LLM reclassified ${cls.cause} → ${llm.cause} at ` +
+          `${(llm.confidence * 100).toFixed(0)}% confidence, clearing the overturn bar.`,
+      });
     }
   }
 
-  // ── Step 3: Policy selects action ────────────────────────────────────────
+  return {
+    cause, narrative, confidence,
+    taxonomyCause: cls.cause, taxonomyConfidence: cls.confidence,
+    llmProposedCause: llmProposed,
+    llmUsed, llmFallback, policyOverride, llmFallbackReason,
+    signals: cls.signals, auditTrail: audit,
+  };
+}
+
+// ─── Single-shot decision, retained for callers that do not run a campaign ────
+
+export interface AgentResult {
+  cause: FailureCause;
+  diagnosisNarrative: string;
+  action: RecoveryAction;
+  blocked: boolean;
+  stopCode?: StopCode;
+  stopReason?: string;
+  confidenceScore: number;
+  llmUsed: boolean;
+  llmFallback: boolean;
+  policyOverride: boolean;
+  auditTrail: AuditEntry[];
+}
+
+export async function runAgent(c: CaseInput): Promise<AgentResult> {
+  const d = await diagnose(c);
+  const audit = [...d.auditTrail];
+
   const action = selectAction({
-    cause,
+    cause: d.cause,
     subscriptionState: c.subscriptionState,
     retryCount: c.retryCount,
     amountPaise: c.amountPaise,
     paymentMethod: c.paymentMethod,
+    stepIndex: 0,
+    salaryWindowHint: c.salaryWindowHint,
   });
 
-  audit.push({
-    actor: "policy",
-    event: "action_selected",
-    detail: `Policy selected action: ${action}`,
-    policyOverride,
-  });
+  audit.push({ actor: "policy", event: "action_selected", detail: `Policy selected: ${action}` });
 
-  // ── Step 4: Stop rules veto check ────────────────────────────────────────
-  const stopResult = checkStops({
+  const stop = checkStops({
     action,
-    cause,
+    cause: d.cause,
     retryCount: c.retryCount,
     touchCount: c.touchCount,
     isDnd: c.isDnd,
     hasConsented: c.hasConsented,
     alreadyPaid: c.alreadyPaid ?? false,
     bankOutageActive: c.bankOutageActive ?? false,
-    mandateRevoked: cause === "mandate_revoked",
+    mandateRevoked: d.cause === "mandate_revoked",
     promiseToPay: c.promiseToPay,
     amountPaise: c.amountPaise,
-    confidenceScore,
+    confidenceScore: d.confidence,
   });
 
-  if (stopResult.blocked) {
-    audit.push({
-      actor: "stop_rule",
-      event: "action_blocked",
-      detail: `Stop rule "${stopResult.stopCode}": ${stopResult.reason}`,
-    });
-  } else {
-    audit.push({
-      actor: "executor",
-      event: "action_allowed",
-      detail: `Action "${action}" cleared all stop rules.`,
-    });
-  }
+  audit.push(stop.blocked
+    ? { actor: "stop_rule", event: "action_blocked", detail: `${stop.stopCode}: ${stop.reason}` }
+    : { actor: "executor", event: "action_allowed", detail: `${action} cleared all stop rules.` });
 
   return {
-    cause,
-    diagnosisNarrative,
+    cause: d.cause,
+    diagnosisNarrative: d.narrative,
     action,
-    blocked: stopResult.blocked,
-    stopCode: stopResult.stopCode,
-    stopReason: stopResult.reason,
-    confidenceScore,
-    llmUsed,
-    llmFallback,
-    policyOverride,
-    outreachCopy,
+    blocked: stop.blocked,
+    stopCode: stop.stopCode,
+    stopReason: stop.reason,
+    confidenceScore: d.confidence,
+    llmUsed: d.llmUsed,
+    llmFallback: d.llmFallback,
+    policyOverride: d.policyOverride,
     auditTrail: audit,
   };
 }

@@ -1,4 +1,5 @@
 import type { RecoveryAction, StopCode } from "@/db/schema";
+import { costOfAction, isEconomicallySane, channelForAction } from "./economics";
 
 export interface StopInput {
   action: RecoveryAction;
@@ -10,97 +11,146 @@ export interface StopInput {
   alreadyPaid: boolean;
   bankOutageActive: boolean;
   mandateRevoked: boolean;
-  promiseToPay?: string | null; // ISO date — if in the future, we wait
+  promiseToPay?: string | null;
   amountPaise: number;
-  confidenceScore: number; // 0–1 from LLM or 1.0 for deterministic
+  confidenceScore: number;
+  /** Campaign context. */
+  day?: number;
+  spentPaise?: number;
+  disputed?: boolean;
+  ladderExhausted?: boolean;
+  /** Reference date for promise-to-pay comparison; defaults to now. */
+  now?: Date;
 }
 
 export interface StopResult {
   blocked: boolean;
   stopCode?: StopCode;
   reason?: string;
+  /**
+   * Permanent stops end the campaign. Transient stops only skip this step —
+   * a promise-to-pay date, for example, means wait rather than give up.
+   */
+  permanent?: boolean;
 }
 
-const NPCI_MAX_RETRIES = 3;   // 1 original + 3 retries
-const MAX_TOUCHES      = 3;
-const AMOUNT_FLOOR     = 10_00; // ₹10 in paise — below this, not worth the outreach cost
-const LOW_CONF         = 0.4;
+export const NPCI_MAX_RETRIES   = 3;    // 1 original + 3 retries
+export const MAX_TOUCHES        = 3;
+export const AMOUNT_FLOOR_PAISE = 1_000; // ₹10
+export const LOW_CONFIDENCE     = 0.4;
+export const MAX_CAMPAIGN_DAYS  = 30;
+
+const OUTREACH_ACTIONS: RecoveryAction[] = [
+  "send_method_update_link",
+  "send_one_time_payment_link",
+  "offer_pause",
+  "hinglish_voice_script",
+];
+
+function isOutreach(a: RecoveryAction): boolean {
+  return OUTREACH_ACTIONS.includes(a);
+}
 
 /**
- * Ordered stop-rule checks. First match wins.
- * Policy wins if LLM disagrees — this function is the gate.
+ * Ordered veto rules. First match wins.
+ *
+ * This is the only place an action can be blocked, and it runs on every step of
+ * every campaign. Policy proposes; this function is what makes the agent safe to
+ * point at real money.
  */
 export function checkStops(input: StopInput): StopResult {
-  const { action, retryCount, touchCount, isDnd, hasConsented,
-          alreadyPaid, bankOutageActive, mandateRevoked,
-          promiseToPay, amountPaise, confidenceScore } = input;
+  const {
+    action, retryCount, touchCount, isDnd, hasConsented, alreadyPaid,
+    bankOutageActive, mandateRevoked, promiseToPay, amountPaise,
+    confidenceScore, day = 0, spentPaise = 0, disputed = false,
+    ladderExhausted = false, now = new Date(),
+  } = input;
 
-  // 1. Already paid — no action needed
+  // 1. Money is already in. Nothing to recover.
   if (alreadyPaid) {
-    return { blocked: true, stopCode: "already_paid", reason: "Payment already received; case should be closed." };
+    return { blocked: true, stopCode: "already_paid", permanent: true,
+      reason: "Payment already received. Case closes without further action." };
   }
 
-  // 2. NPCI retry cap — silent Autopay retries are capped at 1+3
-  if (action === "silent_retry_at_window" && retryCount >= NPCI_MAX_RETRIES) {
-    return { blocked: true, stopCode: "npci_retry_cap",
-      reason: `NPCI allows 1 original + 3 retries. ${retryCount} retries already used.` };
+  // 2. Customer formally disputed the charge. Stop dunning, hand to a human.
+  if (disputed) {
+    return { blocked: true, stopCode: "customer_disputed", permanent: true,
+      reason: "Customer disputed the charge. Automated collection must stop." };
   }
 
-  // 3. Mandate has been revoked — Autopay retry is illegal
-  if (mandateRevoked && action === "silent_retry_at_window") {
-    return { blocked: true, stopCode: "mandate_revoked_block",
-      reason: "Mandate is revoked; auto-debit would fail and violate regulations." };
+  // 3. Customer asked not to be contacted. Absolute, and it outranks revenue.
+  if (isDnd && isOutreach(action)) {
+    return { blocked: true, stopCode: "dnd_opted_out", permanent: true,
+      reason: "Customer is on DND or has opted out. No outreach is permitted." };
   }
 
-  // 4. Bank outage active — sending any contact is misleading
-  if (bankOutageActive && action !== "do_nothing") {
-    return { blocked: true, stopCode: "bank_outage_active",
-      reason: "Bank/PSP outage is live. Contacting the customer now is a bug." };
-  }
-
-  // 5. DND opted-out — no outreach actions
-  const outreachActions: RecoveryAction[] = [
-    "send_method_update_link",
-    "send_one_time_payment_link",
-    "offer_pause",
-    "hinglish_voice_script",
-  ];
-  if (isDnd && outreachActions.includes(action as RecoveryAction)) {
-    return { blocked: true, stopCode: "dnd_opted_out",
-      reason: "Customer is on DND. No outreach allowed." };
-  }
-
-  // 6. Consent required for voice
+  // 4. Voice requires explicit consent.
   if (!hasConsented && action === "hinglish_voice_script") {
-    return { blocked: true, stopCode: "dnd_opted_out",
-      reason: "Customer has not consented to voice outreach." };
+    return { blocked: true, stopCode: "dnd_opted_out", permanent: false,
+      reason: "No consent on file for voice contact." };
   }
 
-  // 7. Promise-to-pay date in the future — wait, don't chase
-  if (promiseToPay) {
-    const promiseDate = new Date(promiseToPay);
-    if (!isNaN(promiseDate.getTime()) && promiseDate > new Date()) {
-      return { blocked: true, stopCode: "promise_to_pay_pending",
-        reason: `Customer promised to pay by ${promiseToPay}. Do not contact before then.` };
+  // 5. Campaign window is over.
+  if (day > MAX_CAMPAIGN_DAYS) {
+    return { blocked: true, stopCode: "campaign_expired", permanent: true,
+      reason: `Campaign exceeded its ${MAX_CAMPAIGN_DAYS}-day bound.` };
+  }
+
+  // 6. Escalation ladder has no rungs left.
+  if (ladderExhausted && action === "do_nothing") {
+    return { blocked: true, stopCode: "ladder_exhausted", permanent: true,
+      reason: "All bounded interventions for this cause have been attempted." };
+  }
+
+  // 7. Regulatory retry cap on auto-debit.
+  if (action === "silent_retry_at_window" && retryCount >= NPCI_MAX_RETRIES) {
+    return { blocked: true, stopCode: "npci_retry_cap", permanent: false,
+      reason: `NPCI permits 1 original debit plus 3 retries. ${retryCount} already used.` };
+  }
+
+  // 8. Retrying a revoked mandate is not just futile, it is not permitted.
+  if (mandateRevoked && action === "silent_retry_at_window") {
+    return { blocked: true, stopCode: "mandate_revoked_block", permanent: false,
+      reason: "Mandate is revoked. Auto-debit against it is impermissible." };
+  }
+
+  // 9. Do not contact customers about our own outage.
+  if (bankOutageActive && isOutreach(action)) {
+    return { blocked: true, stopCode: "bank_outage_active", permanent: false,
+      reason: "Bank/PSP outage is active. Contacting the customer now misattributes our failure." };
+  }
+
+  // 10. They told us when they will pay. Honour it.
+  if (promiseToPay && isOutreach(action)) {
+    const due = new Date(promiseToPay);
+    if (!isNaN(due.getTime()) && due > now) {
+      return { blocked: true, stopCode: "promise_to_pay_pending", permanent: false,
+        reason: `Customer committed to pay by ${promiseToPay}. No contact before that date.` };
     }
   }
 
-  // 8. Max touches reached
-  if (touchCount >= MAX_TOUCHES && outreachActions.includes(action as RecoveryAction)) {
-    return { blocked: true, stopCode: "max_touches_reached",
-      reason: `${touchCount} outreach attempts already made. Escalate or close.` };
+  // 11. Contact frequency cap.
+  if (touchCount >= MAX_TOUCHES && isOutreach(action)) {
+    return { blocked: true, stopCode: "max_touches_reached", permanent: true,
+      reason: `${touchCount} outreach attempts already made. Further contact is harassment.` };
   }
 
-  // 9. Amount below floor — not worth outreach cost
-  if (amountPaise < AMOUNT_FLOOR) {
-    return { blocked: true, stopCode: "amount_below_floor",
-      reason: `Amount ₹${(amountPaise / 100).toFixed(2)} is below the ₹${AMOUNT_FLOOR / 100} outreach floor.` };
+  // 12. Too small to be worth pursuing at all.
+  if (amountPaise < AMOUNT_FLOOR_PAISE && action !== "do_nothing") {
+    return { blocked: true, stopCode: "amount_below_floor", permanent: true,
+      reason: `₹${(amountPaise / 100).toFixed(2)} is below the ₹${AMOUNT_FLOOR_PAISE / 100} pursuit floor.` };
   }
 
-  // 10. Low LLM confidence on unknown cause — escalate, don't guess
-  if (confidenceScore < LOW_CONF) {
-    return { blocked: true, stopCode: "low_confidence",
-      reason: `LLM confidence ${(confidenceScore * 100).toFixed(0)}% is too low to act autonomously.` };
+  // 13. The touch costs too much relative to what is at stake.
+  const econ = isEconomicallySane(action, amountPaise, spentPaise);
+  if (!econ.sane) {
+    return { blocked: true, stopCode: "uneconomic", permanent: false, reason: econ.reason };
+  }
+
+  // 14. We are not confident enough to spend money on a guess.
+  if (confidenceScore < LOW_CONFIDENCE && action !== "do_nothing" && action !== "escalate_human") {
+    return { blocked: true, stopCode: "low_confidence", permanent: false,
+      reason: `Diagnosis confidence ${(confidenceScore * 100).toFixed(0)}% is below the ${LOW_CONFIDENCE * 100}% bar for autonomous spend.` };
   }
 
   return { blocked: false };

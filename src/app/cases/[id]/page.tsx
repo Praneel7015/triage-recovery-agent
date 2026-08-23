@@ -3,6 +3,9 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { use } from "react";
+import { CampaignTimeline, type CampaignStepRow } from "@/components/CampaignTimeline";
+import { VoicePlayer } from "@/components/VoicePlayer";
+import { rupees, labelCause, labelAction, labelStatus } from "@/lib/format";
 
 interface AuditEntry {
   id: string;
@@ -10,6 +13,7 @@ interface AuditEntry {
   actor: string;
   event: string;
   detail: string;
+  day: number | null;
   llmUsed: boolean;
   llmFallback: boolean;
   policyOverride: boolean;
@@ -22,6 +26,7 @@ interface CaseDetail {
   customerPhone: string | null;
   amountPaise: number;
   paymentMethod: string;
+  segment: string;
   subscriptionState: string | null;
   errorReason: string | null;
   errorSource: string | null;
@@ -34,42 +39,54 @@ interface CaseDetail {
   retryCount: number;
   touchCount: number;
   isDnd: boolean;
+  isHoldout: boolean;
   hasConsented: boolean;
   bankOutageActive: boolean;
   promiseToPay: string | null;
   salaryWindowHint: string | null;
   razorpayPaymentLinkUrl: string | null;
   isNaiveRun: boolean;
-  failedAt: number;
+  totalCostPaise: number;
+  recoveredAmountPaise: number;
+  recoveredOnDay: number | null;
+  stepCount: number;
+  confidenceScore: number | null;
+  llmCalls: number;
+  optedOut: boolean;
+  disputed: boolean;
   auditTrail: AuditEntry[];
+  campaignSteps: CampaignStepRow[];
 }
 
-const ACTOR_COLOR: Record<string, string> = {
-  agent:      "bg-zinc-700 text-zinc-200",
-  policy:     "bg-blue-900 text-blue-200",
-  stop_rule:  "bg-amber-900 text-amber-200",
-  executor:   "bg-emerald-900 text-emerald-200",
-  webhook:    "bg-purple-900 text-purple-200",
-  llm:        "bg-violet-900 text-violet-200",
-  naive:      "bg-zinc-800 text-zinc-400",
+const ACTOR_LABEL: Record<string, string> = {
+  agent: "Agent",
+  policy: "Policy",
+  stop_rule: "Stop rule",
+  executor: "Executor",
+  webhook: "Webhook",
+  llm: "LLM",
+  customer: "Customer",
+  naive: "Naive",
 };
 
-export default function CaseDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default function CaseFilePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const [c, setC] = useState<CaseDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [livePending, setLivePending] = useState(false);
-  const [liveResult, setLiveResult] = useState<any>(null);
+  const [liveError, setLiveError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const reload = () =>
     fetch(`/api/cases/${id}`)
-      .then(r => r.json())
-      .then(d => { setC(d); setLoading(false); })
+      .then((r) => r.json())
+      .then((d) => { setC(d); setLoading(false); })
       .catch(() => setLoading(false));
-  }, [id]);
+
+  useEffect(() => { reload(); }, [id]);
 
   const createLiveLink = async () => {
     setLivePending(true);
+    setLiveError(null);
     try {
       const r = await fetch("/api/live", {
         method: "POST",
@@ -77,148 +94,175 @@ export default function CaseDetailPage({ params }: { params: Promise<{ id: strin
         body: JSON.stringify({ caseId: id }),
       });
       const data = await r.json();
-      setLiveResult(data);
-      // Refresh case
-      const updated = await fetch(`/api/cases/${id}`);
-      setC(await updated.json());
+      if (!data.ok) setLiveError(data.error ?? "Payment link failed");
+      await reload();
     } catch (e: any) {
-      setLiveResult({ ok: false, error: e.message });
+      setLiveError(e.message);
     }
     setLivePending(false);
   };
 
-  if (loading) return <div className="text-xs text-zinc-500 p-6">Loading…</div>;
-  if (!c || (c as any).error) return <div className="text-xs text-red-400 p-6">Case not found.</div>;
+  if (loading) {
+    return (
+      <div className="page">
+        <p className="dim">Opening case file…</p>
+      </div>
+    );
+  }
 
-  const amountRupees = (c.amountPaise / 100).toLocaleString("en-IN");
+  if (!c || (c as any).error) {
+    return (
+      <div className="page">
+        <div className="empty panel">
+          <h2>Case not found</h2>
+          <p>This case id does not exist. Run a batch eval first.</p>
+          <Link href="/cases" className="btn btn-ghost">Back to registry</Link>
+        </div>
+      </div>
+    );
+  }
+
+  const voiceScript = c.campaignSteps?.find((s) => s.voiceScript)?.voiceScript;
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
-      {/* Breadcrumb */}
-      <div className="text-xs text-zinc-500">
-        <Link href="/" className="hover:text-zinc-300">Scoreboard</Link>
-        <span className="mx-2">›</span>
-        <Link href="/cases" className="hover:text-zinc-300">Cases</Link>
-        <span className="mx-2">›</span>
-        <span className="text-zinc-300">{c.id}</span>
-      </div>
+    <div className="page">
+      <nav className="dim" style={{ fontSize: "0.75rem", marginBottom: "1.25rem" }}>
+        <Link href="/" style={{ color: "var(--roast)" }}>Ledger</Link>
+        <span style={{ margin: "0 0.4rem" }}>/</span>
+        <Link href="/cases" style={{ color: "var(--roast)" }}>Case files</Link>
+        <span style={{ margin: "0 0.4rem" }}>/</span>
+        <span>{c.id}</span>
+      </nav>
 
       {/* Case header */}
-      <div className="rounded border border-zinc-800 bg-zinc-900 p-5 space-y-3">
-        <div className="flex items-start justify-between gap-4">
+      <header className="panel panel-raised" style={{ marginBottom: "1.25rem" }}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "1rem", justifyContent: "space-between", alignItems: "flex-start" }}>
           <div>
-            <h1 className="text-lg font-bold text-zinc-100">{c.customerName}</h1>
-            <div className="text-xs text-zinc-500 mt-1">{c.customerEmail} · {c.customerPhone} · {c.paymentMethod.toUpperCase()}</div>
+            <p className="eyebrow">{c.segment.replace(/_/g, " ")} · {c.paymentMethod.toUpperCase()}</p>
+            <h1 className="display" style={{ fontSize: "1.65rem", margin: "0.25rem 0" }}>{c.customerName}</h1>
+            <p className="dim" style={{ margin: 0, fontSize: "0.8rem" }}>
+              {c.customerEmail ?? "—"} · {c.customerPhone ?? "—"}
+            </p>
           </div>
-          <div className="text-right">
-            <div className="text-2xl font-bold text-zinc-100">₹{amountRupees}</div>
-            <div className={`text-xs mt-1 font-semibold ${c.status === "recovered" ? "text-emerald-400" : c.status === "stopped" ? "text-amber-400" : "text-zinc-400"}`}>
-              {c.status.toUpperCase()}
+          <div style={{ textAlign: "right" }}>
+            <div className="data highlight" style={{ fontSize: "1.75rem", color: "var(--ink)" }}>
+              {rupees(c.amountPaise)}
+            </div>
+            <div className={`status-${c.status}`} style={{ fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em" }}>
+              {labelStatus(c.status)}
             </div>
           </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-3 text-xs">
-          <div className="bg-zinc-800 rounded p-2">
-            <div className="text-zinc-400">Cause</div>
-            <div className="text-amber-400 font-semibold mt-0.5">{c.cause ?? "—"}</div>
+        <div className="metric-grid cols-3" style={{ marginTop: "1.25rem", paddingTop: "1rem", borderTop: "1px solid var(--border)" }}>
+          <div className="metric">
+            <span className="metric-label">Cause</span>
+            <span className="metric-value" style={{ fontSize: "1rem" }}>{labelCause(c.cause)}</span>
           </div>
-          <div className="bg-zinc-800 rounded p-2">
-            <div className="text-zinc-400">Action</div>
-            <div className="text-blue-400 font-semibold mt-0.5">{c.actionTaken ?? "—"}</div>
+          <div className="metric">
+            <span className="metric-label">Primary action</span>
+            <span className="metric-value" style={{ fontSize: "0.95rem" }}>{labelAction(c.actionTaken)}</span>
           </div>
-          <div className="bg-zinc-800 rounded p-2">
-            <div className="text-zinc-400">Stop Rule</div>
-            <div className="text-amber-400 font-semibold mt-0.5">{c.stopCode ?? "none"}</div>
+          <div className="metric">
+            <span className="metric-label">Stop rule</span>
+            <span className="metric-value" style={{ fontSize: "0.95rem" }}>{c.stopCode?.replace(/_/g, " ") ?? "none"}</span>
           </div>
         </div>
 
-        {/* Flags */}
-        <div className="flex gap-2 flex-wrap text-xs">
-          {c.isDnd         && <span className="px-2 py-0.5 rounded bg-red-900 text-red-300">DND</span>}
-          {c.bankOutageActive && <span className="px-2 py-0.5 rounded bg-orange-900 text-orange-300">BANK OUTAGE</span>}
-          {c.promiseToPay  && <span className="px-2 py-0.5 rounded bg-purple-900 text-purple-300">PTP {c.promiseToPay}</span>}
-          {c.salaryWindowHint && <span className="px-2 py-0.5 rounded bg-zinc-700 text-zinc-300">Salary: {c.salaryWindowHint}</span>}
-          {c.isNaiveRun    && <span className="px-2 py-0.5 rounded bg-zinc-800 text-zinc-400">NAIVE RUN</span>}
-          {!c.hasConsented && <span className="px-2 py-0.5 rounded bg-red-900 text-red-300">NO CONSENT</span>}
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "0.4rem", marginTop: "0.85rem" }}>
+          {c.isHoldout && <span className="badge badge-warn">Holdout — no contact</span>}
+          {c.isDnd && <span className="badge badge-danger">DND</span>}
+          {c.bankOutageActive && <span className="badge badge-warn">Bank outage</span>}
+          {c.promiseToPay && <span className="badge badge-signal">PTP {c.promiseToPay}</span>}
+          {c.salaryWindowHint && <span className="badge badge-forest">Salary {c.salaryWindowHint}</span>}
+          {c.isNaiveRun && <span className="badge badge-forest">Naive run</span>}
+          {c.optedOut && <span className="badge badge-danger">Opted out</span>}
+          {c.disputed && <span className="badge badge-warn">Disputed</span>}
         </div>
 
-        {/* Diagnosis */}
         {c.diagnosisNarrative && (
-          <div className="text-xs text-zinc-300 border-t border-zinc-800 pt-3">
-            <span className="text-zinc-500">Diagnosis: </span>{c.diagnosisNarrative}
-          </div>
+          <p style={{ margin: "1rem 0 0", fontSize: "0.88rem", color: "var(--cream)", borderTop: "1px solid var(--border-on-roast)", paddingTop: "1rem" }}>
+            {c.diagnosisNarrative}
+          </p>
         )}
+      </header>
 
-        {/* Error fields */}
-        <div className="text-xs text-zinc-500 border-t border-zinc-800 pt-3 grid grid-cols-2 gap-1">
-          <div><span className="text-zinc-600">error_reason:</span> <span className="text-zinc-300">{c.errorReason ?? "—"}</span></div>
-          <div><span className="text-zinc-600">error_source:</span> <span className="text-zinc-300">{c.errorSource ?? "—"}</span></div>
-          <div><span className="text-zinc-600">subscription_state:</span> <span className="text-zinc-300">{c.subscriptionState ?? "—"}</span></div>
-          <div><span className="text-zinc-600">retries:</span> <span className="text-zinc-300">{c.retryCount} · touches: {c.touchCount}</span></div>
+      <div className="case-split" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.25rem" }}>
+        {/* Campaign timeline — signature */}
+        <section className="panel">
+          <p className="eyebrow" style={{ marginBottom: "1rem" }}>Campaign spine</p>
+          <CampaignTimeline steps={c.campaignSteps ?? []} />
+          {voiceScript && <VoicePlayer script={voiceScript} />}
+        </section>
+
+        {/* Audit + live */}
+        <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+          {!c.isNaiveRun && (
+            <section className="panel">
+              <p className="eyebrow" style={{ marginBottom: "0.75rem" }}>Live test-mode</p>
+              <p className="muted" style={{ fontSize: "0.82rem", margin: "0 0 0.85rem" }}>
+                Create a real Razorpay Payment Link for this case.
+              </p>
+              {c.razorpayPaymentLinkUrl ? (
+                <a
+                  href={c.razorpayPaymentLinkUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="btn btn-primary"
+                  style={{ display: "inline-flex", wordBreak: "break-all" }}
+                >
+                  Open payment link
+                </a>
+              ) : (
+                <button type="button" className="btn btn-primary" onClick={createLiveLink} disabled={livePending}>
+                  {livePending ? "Creating…" : "Create payment link"}
+                </button>
+              )}
+              {liveError && (
+                <p style={{ color: "var(--danger)", fontSize: "0.8rem", marginTop: "0.65rem" }}>{liveError}</p>
+              )}
+            </section>
+          )}
+
+          <section className="panel" style={{ flex: 1 }}>
+            <p className="eyebrow" style={{ marginBottom: "0.85rem" }}>Audit trail</p>
+            <div style={{ maxHeight: "420px", overflowY: "auto" }}>
+              {c.auditTrail.length === 0 ? (
+                <p className="dim" style={{ fontSize: "0.82rem" }}>No audit entries.</p>
+              ) : (
+                c.auditTrail.map((e) => (
+                  <div
+                    key={e.id}
+                    style={{
+                      padding: "0.55rem 0",
+                      borderBottom: "1px solid var(--border)",
+                      fontSize: "0.78rem",
+                    }}
+                  >
+                    <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
+                      <span className="badge badge-forest">{ACTOR_LABEL[e.actor] ?? e.actor}</span>
+                      <strong>{e.event.replace(/_/g, " ")}</strong>
+                      {e.day != null && <span className="dim">day {e.day}</span>}
+                      {e.policyOverride && <span className="badge badge-warn">policy override</span>}
+                      {e.llmFallback && <span className="badge badge-warn">fallback</span>}
+                    </div>
+                    <p className="muted" style={{ margin: "0.25rem 0 0" }}>{e.detail}</p>
+                  </div>
+                ))
+              )}
+            </div>
+          </section>
         </div>
       </div>
 
-      {/* Live Razorpay action */}
-      {!c.isNaiveRun && (
-        <div className="rounded border border-zinc-700 bg-zinc-900 p-4 space-y-3">
-          <div className="text-sm font-semibold text-zinc-200">Live Test-Mode Action</div>
-          <div className="text-xs text-zinc-400">Create a real Razorpay test Payment Link for this case. Requires <code>RAZORPAY_KEY_ID</code> in <code>.env</code>.</div>
-          {c.razorpayPaymentLinkUrl ? (
-            <div className="text-xs">
-              <span className="text-zinc-400">Payment Link: </span>
-              <a href={c.razorpayPaymentLinkUrl} target="_blank" rel="noreferrer" className="text-emerald-400 hover:underline break-all">
-                {c.razorpayPaymentLinkUrl}
-              </a>
-            </div>
-          ) : (
-            <button onClick={createLiveLink} disabled={livePending}
-              className="px-4 py-2 text-xs bg-blue-700 hover:bg-blue-600 disabled:opacity-50 rounded text-white font-semibold"
-            >
-              {livePending ? "Creating…" : "⚡ Create Payment Link (test mode)"}
-            </button>
-          )}
-          {liveResult && !liveResult.ok && (
-            <div className="text-xs text-red-400 rounded bg-red-950 p-2">
-              {liveResult.error} {liveResult.escalated && "· Escalated to human (graceful fallback ✓)"}
-            </div>
-          )}
-          {liveResult?.paymentLink && (
-            <div className="text-xs text-emerald-400">
-              Created: <a href={liveResult.paymentLink.short_url} target="_blank" rel="noreferrer" className="underline">{liveResult.paymentLink.short_url}</a>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Audit timeline */}
-      <div className="space-y-2">
-        <h2 className="text-sm font-semibold text-zinc-300">Audit Trail</h2>
-        <div className="space-y-2">
-          {c.auditTrail.map((entry) => (
-            <div key={entry.id} className="flex gap-3 text-xs">
-              <div className="text-zinc-600 w-24 shrink-0 pt-0.5">{new Date(entry.ts * 1000).toLocaleTimeString()}</div>
-              <div className="w-20 shrink-0">
-                <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${ACTOR_COLOR[entry.actor] ?? "bg-zinc-800 text-zinc-400"}`}>
-                  {entry.actor}
-                </span>
-              </div>
-              <div className="flex-1">
-                <span className="text-zinc-300 font-semibold">{entry.event}</span>
-                <span className="text-zinc-500 ml-2">{entry.detail}</span>
-                <span className="ml-2 space-x-1">
-                  {entry.llmUsed     && <span className="text-violet-400">[LLM]</span>}
-                  {entry.llmFallback && <span className="text-amber-400">[fallback]</span>}
-                  {entry.policyOverride && <span className="text-red-400">[policy override]</span>}
-                </span>
-              </div>
-            </div>
-          ))}
-          {c.auditTrail.length === 0 && (
-            <div className="text-xs text-zinc-600">No audit entries. Run batch eval first.</div>
-          )}
-        </div>
-      </div>
+      {/* Error context footer */}
+      <footer className="panel-inset" style={{ marginTop: "1.25rem", fontSize: "0.75rem" }}>
+        <span className="dim">error_reason</span> {c.errorReason ?? "—"} ·{" "}
+        <span className="dim">source</span> {c.errorSource ?? "—"} ·{" "}
+        <span className="dim">subscription</span> {c.subscriptionState ?? "—"} ·{" "}
+        <span className="dim">spend</span> {rupees(c.totalCostPaise)} ·{" "}
+        <span className="dim">steps</span> {c.stepCount}
+      </footer>
     </div>
   );
 }

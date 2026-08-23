@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db/client";
-import { cases, auditLog } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { cases, auditLog, campaignSteps } from "@/db/schema";
+import { eq, asc } from "drizzle-orm";
 import { migrate } from "@/db/migrate";
 
 migrate();
@@ -14,10 +14,15 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 
     const trail = db.select().from(auditLog)
       .where(eq(auditLog.caseId, id))
-      .orderBy(auditLog.ts)
+      .orderBy(asc(auditLog.ts))
       .all();
 
-    return NextResponse.json({ ...c, auditTrail: trail });
+    const steps = db.select().from(campaignSteps)
+      .where(eq(campaignSteps.caseId, id))
+      .orderBy(asc(campaignSteps.day), asc(campaignSteps.stepIndex))
+      .all();
+
+    return NextResponse.json({ ...c, auditTrail: trail, campaignSteps: steps });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }

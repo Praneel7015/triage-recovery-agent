@@ -2,120 +2,141 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { rupees, labelCause, labelAction, labelStatus } from "@/lib/format";
 
-interface Case {
+interface CaseRow {
   id: string;
   customerName: string;
   amountPaise: number;
   cause: string | null;
   actionTaken: string | null;
-  stopCode: string | null;
   status: string;
-  errorReason: string | null;
-  paymentMethod: string;
+  segment: string;
   isDnd: boolean;
+  isHoldout: boolean;
   isNaiveRun: boolean;
-  touchCount: number;
-  retryCount: number;
-  updatedAt: number;
+  stepCount: number;
+  recoveredOnDay: number | null;
+  totalCostPaise: number;
 }
 
-const STATUS_COLOR: Record<string, string> = {
-  recovered:    "text-emerald-400",
-  stopped:      "text-amber-400",
-  in_progress:  "text-blue-400",
-  escalated:    "text-purple-400",
-  unrecoverable:"text-red-400",
-  open:         "text-zinc-400",
-};
-
-const ACTION_COLOR: Record<string, string> = {
-  do_nothing:                 "text-zinc-500",
-  silent_retry_at_window:     "text-blue-400",
-  send_one_time_payment_link: "text-emerald-400",
-  send_method_update_link:    "text-cyan-400",
-  offer_pause:                "text-purple-400",
-  hinglish_voice_script:      "text-orange-400",
-  escalate_human:             "text-red-400",
-};
-
 export default function CasesPage() {
-  const [allCases, setAllCases] = useState<Case[]>([]);
+  const [cases, setCases] = useState<CaseRow[]>([]);
   const [filter, setFilter] = useState<"triage" | "naive">("triage");
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     setLoading(true);
+    setLoadError(null);
     fetch(`/api/cases?strategy=${filter}`)
-      .then(r => r.json())
-      .then(data => { setAllCases(Array.isArray(data) ? data : []); setLoading(false); })
-      .catch(() => setLoading(false));
+      .then((r) => {
+        if (!r.ok) throw new Error("Could not load cases");
+        return r.json();
+      })
+      .then((d) => { setCases(Array.isArray(d) ? d : []); setLoading(false); })
+      .catch((err) => { setLoadError(err.message ?? "Failed to load"); setLoading(false); });
   }, [filter]);
 
-  const visible = allCases.filter(c =>
-    !search ||
-    c.customerName.toLowerCase().includes(search.toLowerCase()) ||
-    c.cause?.includes(search) ||
-    c.id.includes(search)
+  const visible = cases.filter(
+    (c) =>
+      !search ||
+      c.customerName.toLowerCase().includes(search.toLowerCase()) ||
+      c.cause?.includes(search) ||
+      c.id.includes(search),
   );
 
   return (
-    <div className="max-w-6xl mx-auto space-y-4">
-      <div className="flex items-center gap-4 flex-wrap">
-        <h1 className="text-lg font-bold text-zinc-100">Cases</h1>
-        <div className="flex gap-2">
-          {(["triage","naive"] as const).map(s => (
-            <button key={s} onClick={() => setFilter(s)}
-              className={`text-xs px-3 py-1 rounded ${filter === s ? "bg-zinc-700 text-zinc-100" : "text-zinc-500 hover:text-zinc-300"}`}
-            >{s}</button>
+    <div className="page">
+      <header style={{ marginBottom: "1.75rem" }}>
+        <p className="eyebrow">Case registry</p>
+        <h1 className="display" style={{ fontSize: "1.85rem", margin: "0.35rem 0 0.5rem" }}>
+          Revenue at risk
+        </h1>
+        <p className="muted" style={{ margin: 0, fontSize: "0.88rem" }}>
+          Each row is an open case file — diagnosis, campaign steps, and audit trail inside.
+        </p>
+      </header>
+
+      <div className="filters">
+        <div className="filter-tabs" role="tablist">
+          {(["triage", "naive"] as const).map((s) => (
+            <button
+              key={s}
+              type="button"
+              role="tab"
+              aria-selected={filter === s}
+              className={`filter-tab${filter === s ? " active" : ""}`}
+              onClick={() => setFilter(s)}
+            >
+              {s}
+            </button>
           ))}
         </div>
         <input
-          placeholder="Search name / cause / id…"
-          value={search} onChange={e => setSearch(e.target.value)}
-          className="ml-auto text-xs bg-zinc-900 border border-zinc-700 rounded px-3 py-1 w-64 focus:outline-none focus:border-zinc-500"
+          type="search"
+          className="search-input"
+          placeholder="Search customer, cause, or case id…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          aria-label="Search cases"
         />
-        <Link href="/" className="text-xs text-zinc-500 hover:text-zinc-300">← Scoreboard</Link>
+        <Link href="/" className="btn btn-ghost" style={{ padding: "0.5rem 0.85rem", fontSize: "0.75rem" }}>
+          ← Ledger
+        </Link>
       </div>
 
-      {loading && <div className="text-xs text-zinc-500">Loading…</div>}
-
-      <div className="rounded border border-zinc-800 overflow-hidden">
-        <table className="w-full text-xs">
-          <thead className="bg-zinc-900 text-zinc-400">
-            <tr>
-              <th className="px-3 py-2 text-left">Customer</th>
-              <th className="px-3 py-2 text-right">Amount</th>
-              <th className="px-3 py-2 text-left">Cause</th>
-              <th className="px-3 py-2 text-left">Action</th>
-              <th className="px-3 py-2 text-left">Stop</th>
-              <th className="px-3 py-2 text-left">Status</th>
-              <th className="px-3 py-2 text-center">DND</th>
-              <th className="px-3 py-2 text-right">Retries</th>
-              <th className="px-3 py-2"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {visible.map((c, i) => (
-              <tr key={c.id} className={`border-t border-zinc-800 hover:bg-zinc-900/50 ${i % 2 === 0 ? "" : "bg-zinc-900/20"}`}>
-                <td className="px-3 py-2">{c.customerName}</td>
-                <td className="px-3 py-2 text-right">₹{(c.amountPaise/100).toLocaleString("en-IN")}</td>
-                <td className="px-3 py-2 text-amber-400">{c.cause ?? c.errorReason ?? "—"}</td>
-                <td className={`px-3 py-2 ${ACTION_COLOR[c.actionTaken ?? ""] ?? "text-zinc-400"}`}>{c.actionTaken ?? "—"}</td>
-                <td className="px-3 py-2 text-zinc-500">{c.stopCode ?? "—"}</td>
-                <td className={`px-3 py-2 font-semibold ${STATUS_COLOR[c.status] ?? "text-zinc-400"}`}>{c.status}</td>
-                <td className="px-3 py-2 text-center">{c.isDnd ? <span className="text-red-400">✗</span> : <span className="text-zinc-600">—</span>}</td>
-                <td className="px-3 py-2 text-right">{c.retryCount}</td>
-                <td className="px-3 py-2">
-                  <Link href={`/cases/${c.id}`} className="text-emerald-500 hover:text-emerald-300">→</Link>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {!loading && visible.length === 0 && (
-          <div className="text-center py-8 text-zinc-500 text-xs">No cases found. Run batch eval first.</div>
+      <div className="panel" style={{ padding: 0, overflow: "hidden" }}>
+        {loadError ? (
+          <p className="dim" style={{ padding: "2rem" }}>{loadError}</p>
+        ) : loading ? (
+          <p className="dim" style={{ padding: "2rem" }}>Loading case files…</p>
+        ) : visible.length === 0 ? (
+          <div className="empty" style={{ padding: "2.5rem" }}>
+            <h2>No cases yet</h2>
+            <p>Run a batch eval from the ledger to populate the registry.</p>
+            <Link href="/" className="btn btn-primary">Go to ledger</Link>
+          </div>
+        ) : (
+          <div style={{ overflowX: "auto" }}>
+            <table className="registry">
+              <thead>
+                <tr>
+                  <th>Customer</th>
+                  <th>Segment</th>
+                  <th className="amount">Amount</th>
+                  <th>Cause</th>
+                  <th>Action</th>
+                  <th>Status</th>
+                  <th>Steps</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {visible.map((c) => (
+                  <tr key={c.id}>
+                    <td>
+                      <strong>{c.customerName}</strong>
+                      {c.isHoldout && <span className="badge badge-warn" style={{ marginLeft: "0.4rem" }}>holdout</span>}
+                      {c.isDnd && <span className="badge badge-danger" style={{ marginLeft: "0.4rem" }}>dnd</span>}
+                    </td>
+                    <td><span className="badge badge-forest">{c.segment?.replace(/_/g, " ") ?? "—"}</span></td>
+                    <td className="amount">{rupees(c.amountPaise)}</td>
+                    <td className="muted">{labelCause(c.cause)}</td>
+                    <td>{labelAction(c.actionTaken)}</td>
+                    <td className={`status-${c.status}`}>{labelStatus(c.status)}</td>
+                    <td className="data">{c.stepCount}</td>
+                    <td>
+                      <Link href={`/cases/${c.id}`} className="btn btn-ghost" style={{ padding: "0.35rem 0.65rem", fontSize: "0.72rem" }}>
+                        Open
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
     </div>

@@ -1,8 +1,13 @@
-import { db, sqlite } from "./client";
+import { sqlite } from "./client";
 
 /**
- * Creates all tables if they do not exist.
- * Run once at server startup or via `npm run db:push`.
+ * Creates all tables if they do not exist, then adds any columns introduced
+ * after a database was first created.
+ *
+ * SQLite has no `ADD COLUMN IF NOT EXISTS`, so new columns are applied
+ * individually and duplicate-column errors are ignored. This keeps an existing
+ * eval database usable across schema changes without a migration toolchain,
+ * which matters when the demo database is the one holding the recorded results.
  */
 export function migrate() {
   sqlite.exec(`
@@ -54,7 +59,32 @@ export function migrate() {
       detail TEXT,
       llm_used INTEGER NOT NULL DEFAULT 0,
       llm_fallback INTEGER NOT NULL DEFAULT 0,
-      policy_override INTEGER NOT NULL DEFAULT 0
+      policy_override INTEGER NOT NULL DEFAULT 0,
+      day INTEGER
+    );
+
+    CREATE TABLE IF NOT EXISTS campaign_steps (
+      id TEXT PRIMARY KEY,
+      case_id TEXT NOT NULL,
+      batch_id TEXT,
+      day INTEGER NOT NULL,
+      step_index INTEGER NOT NULL,
+      action TEXT NOT NULL,
+      channel TEXT NOT NULL,
+      cost_paise INTEGER NOT NULL DEFAULT 0,
+      rationale TEXT,
+      blocked INTEGER NOT NULL DEFAULT 0,
+      stop_code TEXT,
+      stop_reason TEXT,
+      outcome TEXT NOT NULL,
+      outcome_reason TEXT,
+      reply_text TEXT,
+      reply_ground_truth TEXT,
+      intent TEXT,
+      intent_confidence REAL,
+      intent_method TEXT,
+      promise_date TEXT,
+      voice_script TEXT
     );
 
     CREATE TABLE IF NOT EXISTS batch_runs (
@@ -75,5 +105,61 @@ export function migrate() {
       completed_at INTEGER,
       metrics_json TEXT
     );
+
+    CREATE INDEX IF NOT EXISTS idx_audit_case   ON audit_log (case_id);
+    CREATE INDEX IF NOT EXISTS idx_steps_case   ON campaign_steps (case_id);
+    CREATE INDEX IF NOT EXISTS idx_cases_batch  ON cases (batch_id);
   `);
+
+  addColumns("cases", [
+    "is_holdout INTEGER NOT NULL DEFAULT 0",
+    "segment TEXT NOT NULL DEFAULT 'subscription'",
+    "total_cost_paise INTEGER NOT NULL DEFAULT 0",
+    "recovered_amount_paise INTEGER NOT NULL DEFAULT 0",
+    "recovered_on_day INTEGER",
+    "step_count INTEGER NOT NULL DEFAULT 0",
+    "confidence_score REAL",
+    "llm_calls INTEGER NOT NULL DEFAULT 0",
+    "llm_fallbacks INTEGER NOT NULL DEFAULT 0",
+    "policy_overrides INTEGER NOT NULL DEFAULT 0",
+    "opted_out INTEGER NOT NULL DEFAULT 0",
+    "disputed INTEGER NOT NULL DEFAULT 0",
+    "invoice_id TEXT",
+    "invoice_due_date TEXT",
+    "aging_days INTEGER",
+  ]);
+
+  addColumns("batch_runs", [
+    "outreach_cost_paise INTEGER NOT NULL DEFAULT 0",
+    "net_recovered_paise INTEGER NOT NULL DEFAULT 0",
+    "roi REAL NOT NULL DEFAULT 0",
+    "cost_per_rupee_recovered REAL NOT NULL DEFAULT 0",
+    "treated_cases INTEGER NOT NULL DEFAULT 0",
+    "treated_recovered INTEGER NOT NULL DEFAULT 0",
+    "holdout_cases INTEGER NOT NULL DEFAULT 0",
+    "holdout_recovered INTEGER NOT NULL DEFAULT 0",
+    "absolute_lift_pct REAL NOT NULL DEFAULT 0",
+    "relative_lift_pct REAL NOT NULL DEFAULT 0",
+    "ignored_opt_outs INTEGER NOT NULL DEFAULT 0",
+    "outage_contacts INTEGER NOT NULL DEFAULT 0",
+    "replies_received INTEGER NOT NULL DEFAULT 0",
+    "intent_extractions INTEGER NOT NULL DEFAULT 0",
+    "intent_accuracy_pct REAL NOT NULL DEFAULT 0",
+    "avg_steps_per_case REAL NOT NULL DEFAULT 0",
+    "avg_days_to_recovery REAL NOT NULL DEFAULT 0",
+  ]);
+
+  addColumns("audit_log", ["day INTEGER"]);
+}
+
+function addColumns(table: string, defs: string[]) {
+  for (const def of defs) {
+    try {
+      sqlite.exec(`ALTER TABLE ${table} ADD COLUMN ${def};`);
+    } catch (e) {
+      const msg = (e as Error).message ?? "";
+      // Expected when the column is already present from a previous run.
+      if (!/duplicate column name/i.test(msg)) throw e;
+    }
+  }
 }

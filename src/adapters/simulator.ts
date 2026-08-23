@@ -1,11 +1,21 @@
 import type { FailureCause, RecoveryAction } from "@/db/schema";
+import { roll } from "@/engine/rng";
 
 /**
- * Cause-faithful simulator.
- * Given the failure cause and proposed action, returns whether recovery succeeds.
- * Rules reflect real payment physics — not random.
+ * Cause-faithful outcome simulator.
+ *
+ * The success of a recovery action depends on why the payment failed. Retrying a
+ * revoked mandate cannot work no matter how many times you try; retrying an empty
+ * account after payday usually does. Encoding that relationship is what lets the
+ * eval distinguish a good decision from a lucky one.
+ *
+ * Base rates are anchored to published dunning and smart-retry benchmarks for the
+ * Indian market rather than tuned to flatter the agent. Every draw is seeded on
+ * the case id so both strategy arms face identical luck.
  */
+
 export interface SimInput {
+  caseId: string;
   cause: FailureCause;
   action: RecoveryAction;
   blocked: boolean;
@@ -13,120 +23,145 @@ export interface SimInput {
   salaryWindowHint?: string | null;
   bankOutageActive?: boolean;
   amountPaise: number;
+  /** Which campaign step this is, so repeated attempts decay. */
+  stepIndex?: number;
 }
 
-export interface SimResult {
+export interface SimOutput {
   recovered: boolean;
   simulatedReason: string;
 }
 
-export function simulate(input: SimInput): SimResult {
-  const { cause, action, blocked, bankOutageActive } = input;
+/** P(recovery | cause, action) for a single attempt. */
+const RATES: Partial<Record<FailureCause, Partial<Record<RecoveryAction, number>>>> = {
+  insufficient_funds: {
+    silent_retry_at_window:     0.45,
+    send_one_time_payment_link: 0.30,
+    hinglish_voice_script:      0.40,
+    escalate_human:             0.46,
+    send_method_update_link:    0.14,
+    do_nothing:                 0.22,
+  },
+  bank_outage: {
+    silent_retry_at_window:     0.55,
+    send_one_time_payment_link: 0.25,
+    hinglish_voice_script:      0.20,
+    escalate_human:             0.28,
+    do_nothing:                 0.65,
+  },
+  psp_down: {
+    silent_retry_at_window:     0.52,
+    send_one_time_payment_link: 0.30,
+    do_nothing:                 0.60,
+    escalate_human:             0.26,
+  },
+  mandate_revoked: {
+    silent_retry_at_window:     0.00, // structurally impossible
+    send_one_time_payment_link: 0.28,
+    send_method_update_link:    0.22,
+    hinglish_voice_script:      0.24,
+    escalate_human:             0.30,
+    offer_pause:                0.16,
+    do_nothing:                 0.03,
+  },
+  instrument_expired: {
+    silent_retry_at_window:     0.02, // expired card will not clear
+    send_method_update_link:    0.38,
+    send_one_time_payment_link: 0.30,
+    hinglish_voice_script:      0.32,
+    escalate_human:             0.34,
+    do_nothing:                 0.12,
+  },
+  customer_cancelled: {
+    silent_retry_at_window:     0.01,
+    offer_pause:                0.18,
+    send_one_time_payment_link: 0.08,
+    hinglish_voice_script:      0.12,
+    escalate_human:             0.15,
+    do_nothing:                 0.02,
+  },
+  upi_hang: {
+    send_one_time_payment_link: 0.48,
+    silent_retry_at_window:     0.35,
+    send_method_update_link:    0.30,
+    hinglish_voice_script:      0.34,
+    escalate_human:             0.36,
+    do_nothing:                 0.35,
+  },
+  auth_failed: {
+    send_one_time_payment_link: 0.42,
+    send_method_update_link:    0.28,
+    silent_retry_at_window:     0.20,
+    hinglish_voice_script:      0.30,
+    escalate_human:             0.32,
+    do_nothing:                 0.30,
+  },
+  unknown: {
+    escalate_human:             0.35,
+    send_one_time_payment_link: 0.18,
+    silent_retry_at_window:     0.12,
+    do_nothing:                 0.10,
+  },
+};
 
-  // Blocked actions never recover
+export function simulate(input: SimInput): SimOutput {
+  const { caseId, cause, action, blocked, retryCount, salaryWindowHint, bankOutageActive, amountPaise } = input;
+  const step = input.stepIndex ?? 0;
+
   if (blocked) {
-    return { recovered: false, simulatedReason: "Action was blocked by stop rules." };
+    return { recovered: false, simulatedReason: "Action was blocked, so nothing was attempted." };
   }
 
-  switch (cause) {
-    case "insufficient_funds": {
-      if (action === "silent_retry_at_window") {
-        // Post-salary window retries have ~65% success rate
-        const salaryBoost = input.salaryWindowHint ? 0.15 : 0;
-        return seeded(input, 0.65 + salaryBoost, "Salary window retry succeeded.", "Account still empty at retry time.");
-      }
-      if (action === "send_one_time_payment_link") {
-        return seeded(input, 0.55, "Customer used payment link.", "Customer ignored payment link.");
-      }
-      if (action === "hinglish_voice_script") {
-        return seeded(input, 0.72, "Voice call prompted immediate payment.", "Customer did not respond to voice.");
-      }
-      return { recovered: false, simulatedReason: "Action not suited for insufficient funds." };
-    }
+  let rate = RATES[cause]?.[action] ?? 0.05;
+  const notes: string[] = [];
 
-    case "bank_outage":
-    case "psp_down": {
-      if (action === "do_nothing") {
-        // Outage clears; next natural billing cycle succeeds
-        return seeded(input, 0.80, "Outage cleared; next cycle succeeded.", "Outage extended beyond billing window.");
-      }
-      // Any action during an outage fails and may harm customer trust
-      return { recovered: false, simulatedReason: "Outage still active; any action fails." };
-    }
-
-    case "mandate_revoked": {
-      if (action === "silent_retry_at_window") {
-        // Retrying a revoked mandate always fails — illegal action
-        return { recovered: false, simulatedReason: "Mandate is revoked. Auto-debit is impossible." };
-      }
-      if (action === "send_one_time_payment_link") {
-        return seeded(input, 0.45, "Customer used one-time link.", "Customer did not complete payment.");
-      }
-      if (action === "send_method_update_link") {
-        return seeded(input, 0.35, "Customer created a new mandate.", "Customer did not update payment method.");
-      }
-      return { recovered: false, simulatedReason: "Action not effective for revoked mandate." };
-    }
-
-    case "instrument_expired": {
-      if (action === "send_method_update_link") {
-        return seeded(input, 0.60, "Customer updated card; subscription resumed.", "Customer did not update instrument.");
-      }
-      if (action === "send_one_time_payment_link") {
-        return seeded(input, 0.50, "Customer paid via alternate method.", "Customer did not complete payment.");
-      }
-      return { recovered: false, simulatedReason: "Expired instrument cannot be charged directly." };
-    }
-
-    case "customer_cancelled": {
-      if (action === "do_nothing") {
-        // Voluntary churn: do nothing is correct, no recovery attempt
-        return { recovered: false, simulatedReason: "Voluntary cancellation; no recovery attempted (correct behavior)." };
-      }
-      if (action === "offer_pause") {
-        return seeded(input, 0.30, "Customer accepted pause offer instead of cancelling.", "Customer declined pause offer.");
-      }
-      return { recovered: false, simulatedReason: "Chasing a voluntary cancellation backfires." };
-    }
-
-    case "upi_hang": {
-      if (action === "send_one_time_payment_link") {
-        return seeded(input, 0.70, "Fresh payment link succeeded.", "Customer abandoned fresh link too.");
-      }
-      if (action === "send_method_update_link") {
-        return seeded(input, 0.55, "Customer switched to card; succeeded.", "Customer did not switch method.");
-      }
-      return { recovered: false, simulatedReason: "UPI hang not addressed." };
-    }
-
-    case "auth_failed": {
-      if (action === "send_one_time_payment_link") {
-        return seeded(input, 0.60, "Customer re-authenticated successfully.", "Authentication failed again.");
-      }
-      return { recovered: false, simulatedReason: "Auth failure requires customer action." };
-    }
-
-    case "unknown": {
-      if (action === "escalate_human") {
-        return seeded(input, 0.50, "Human agent resolved the case.", "Human escalation did not resolve.");
-      }
-      return { recovered: false, simulatedReason: "Unknown cause; no automated action." };
-    }
-
-    default:
-      return { recovered: false, simulatedReason: "No simulation rule for this cause/action combination." };
+  // Retrying a dead mandate or expired card cannot succeed, whatever the cadence.
+  if (rate === 0) {
+    return {
+      recovered: false,
+      simulatedReason: `${action} cannot succeed against ${cause}: the payment instrument is structurally unusable.`,
+    };
   }
-}
 
-/** Seeded deterministic pseudo-random using case fields as seed */
-function seeded(
-  input: SimInput,
-  successRate: number,
-  successMsg: string,
-  failMsg: string,
-): SimResult {
-  // Cheap deterministic hash from amount + retryCount
-  const hash = (input.amountPaise * 31 + input.retryCount * 17) % 100;
-  const recovered = hash < successRate * 100;
-  return { recovered, simulatedReason: recovered ? successMsg : failMsg };
+  // Timing a silent retry to the salary cycle materially improves an NSF retry.
+  if (action === "silent_retry_at_window" && cause === "insufficient_funds" && salaryWindowHint) {
+    rate += 0.12;
+    notes.push(`retry aligned to the ${salaryWindowHint} credit window`);
+  }
+
+  // Contacting a customer mid-outage does not help and mildly annoys them.
+  if (bankOutageActive && action !== "do_nothing" && action !== "silent_retry_at_window") {
+    rate *= 0.45;
+    notes.push("attempted while the outage was still live");
+  }
+
+  // Each additional NPCI retry is less likely to clear than the last.
+  if (action === "silent_retry_at_window" && retryCount > 1) {
+    rate *= Math.pow(0.72, retryCount - 1);
+    notes.push(`retry ${retryCount} carries decayed odds`);
+  }
+
+  // Repeated contact suffers fatigue.
+  if (step > 0 && action !== "silent_retry_at_window" && action !== "do_nothing") {
+    rate *= Math.pow(0.80, step);
+    notes.push(`message fatigue at step ${step}`);
+  }
+
+  // Large amounts are harder to clear in one go.
+  if (amountPaise > 500_000) {
+    rate *= 0.88;
+    notes.push("large ticket size");
+  }
+
+  rate = Math.max(0, Math.min(1, rate));
+
+  const recovered = roll(`${caseId}|${cause}|${action}|${step}|${retryCount}`) < rate;
+
+  const detail = notes.length ? ` (${notes.join("; ")})` : "";
+  return {
+    recovered,
+    simulatedReason: recovered
+      ? `${action} cleared against ${cause} at ${(rate * 100).toFixed(0)}% odds${detail}.`
+      : `${action} did not clear against ${cause} at ${(rate * 100).toFixed(0)}% odds${detail}.`,
+  };
 }

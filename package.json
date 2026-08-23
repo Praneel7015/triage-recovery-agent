@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "eval": "tsx src/eval/run.ts",
+    "compliance": "tsx src/eval/compliance.ts",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio"
   },

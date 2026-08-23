@@ -170,40 +170,47 @@ The agent degrades gracefully — it never returns a 500 error, and taxonomy-onl
 ```
 src/
   engine/
-    taxonomy.ts   — Razorpay error fields → FailureCause (deterministic)
-    policy.ts     — cause × state × retry → RecoveryAction
-    stops.ts      — ordered veto rules
-    agent.ts      — main loop: diagnose → policy → stops → execute → audit
-    naive.ts      — baseline for comparison
+    taxonomy.ts      — Razorpay error fields → FailureCause
+    policy.ts        — cause × state × retry → RecoveryAction
+    stops.ts         — ordered veto rules
+    agent.ts         — diagnose → policy → stops → audit
+    sequencer.ts     — 30-day campaign runner + reply loop
+    naive.ts         — spam baseline for comparison
+    economics.ts     — net recovery, ROI, cost per rupee
+    holdout.ts       — incremental lift vs never-contacted arm
+    rng.ts           — deterministic seeded simulator
 
   adapters/
-    simulator.ts  — cause-faithful success/fail for eval
-    razorpay.ts   — Payment Links + webhook HMAC
-    llm.ts        — structured LLM output + Hinglish copy + PTP extraction
+    simulator.ts     — cause-faithful success/fail for eval
+    razorpay.ts      — Payment Links + webhook HMAC
+    ingest.ts        — live payment.failed → open case file
+    conversation.ts  — Hinglish inbound replies + intent extraction
+    llm.ts           — structured LLM output + copy generation
+    llmClient.ts     — shared LLM client with retry
 
   db/
-    schema.ts     — cases, audit_log, batch_runs
-    client.ts     — Drizzle + SQLite
-    migrate.ts    — CREATE TABLE IF NOT EXISTS (no migrations needed)
+    schema.ts        — cases, campaign_steps, audit_log, batch_runs
+    client.ts        — Drizzle + SQLite
+    migrate.ts       — schema bootstrap + column migrations
 
   eval/
-    run.ts        — CLI eval (npm run eval)
-    persist.ts    — runs eval + writes to DB
+    run.ts           — CLI eval (npm run eval)
+    persist.ts       — batch eval → DB for UI
+    job.ts           — background eval job for /api/eval
+    compliance.ts    — 15 property assertions (npm run compliance)
+
+  components/
+    Nav.tsx, CampaignTimeline.tsx, VoicePlayer.tsx
 
   app/
-    page.tsx          — Scoreboard
-    cases/page.tsx    — Case list
-    cases/[id]/page.tsx — Case detail + audit timeline
-    api/eval/         — POST: trigger batch eval
-    api/batch/        — GET: batch run summaries
-    api/cases/        — GET: cases list
-    api/cases/[id]/   — GET: case + audit trail
-    api/live/         — POST: create Razorpay Payment Link
-    api/webhooks/razorpay/ — POST: webhook handler
+    page.tsx              — Ledger / scoreboard
+    cases/                — Case registry + case file detail
+    api/eval/             — POST start batch, GET job status
+    api/batch/            — GET batch run summaries
+    api/cases/            — GET cases list + detail
+    api/live/             — POST create Payment Link
+    api/webhooks/razorpay/ — POST ingest + recovery webhooks
 
 data/
-  batch.json   — 100 synthetic cases covering full taxonomy
-
-docs/
-  ARCHITECTURE.md  — this file
+  batch.json   — 168 synthetic cases (subscription, checkout, B2B invoice)
 ```
