@@ -629,6 +629,16 @@ select:focus-visible {
   vertical-align: middle;
 }
 
+/* Status column: don't let the cell itself expand the pill */
+.registry td:has(.status-recovered),
+.registry td:has(.status-stopped),
+.registry td:has(.status-unrecoverable),
+.registry td:has(.status-in_progress),
+.registry td:has(.status-open),
+.registry td:has(.status-escalated) {
+  white-space: nowrap;
+}
+
 .registry tr:hover td {
   background: var(--ink-dim);
 }
@@ -639,90 +649,107 @@ select:focus-visible {
   color: var(--ink);
 }
 
-.status-recovered {
+/* Open link in the last column */
+.registry .btn-open {
   display: inline-block;
-  background: rgba(153, 177, 123, 0.22);
-  color: var(--ink);
-  border: 1px solid rgba(153, 177, 123, 0.5);
-  border-radius: 4px;
-  padding: 0.15rem 0.45rem;
-  font-size: 0.7rem;
+  padding: 0.28rem 0.7rem;
+  font-size: 0.72rem;
   font-weight: 600;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink);
+  border: 1px solid rgba(153, 177, 123, 0.4);
+  border-radius: 5px;
+  text-decoration: none;
+  transition: background 0.12s, border-color 0.12s;
+  background: rgba(153, 177, 123, 0.08);
 }
+.registry .btn-open:hover {
+  background: rgba(153, 177, 123, 0.2);
+  border-color: rgba(153, 177, 123, 0.7);
+}
+
+/* Shared pill base */
+.status-recovered,
+.status-stopped,
+.status-unrecoverable,
+.status-in_progress,
+.status-open,
+.status-escalated {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3em;
+  width: fit-content;
+  border-radius: 99px;
+  padding: 0.18em 0.6em;
+  font-size: 0.67rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  line-height: 1.4;
+}
+
+/* dot prefix via ::before */
+.status-recovered::before,
+.status-stopped::before,
+.status-unrecoverable::before,
+.status-in_progress::before,
+.status-open::before,
+.status-escalated::before {
+  content: "";
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.status-recovered {
+  background: rgba(153, 177, 123, 0.18);
+  color: var(--ink);
+  border: 1px solid rgba(153, 177, 123, 0.45);
+}
+.status-recovered::before { background: var(--ink); }
 
 .status-stopped {
-  display: inline-block;
-  background: rgba(239, 219, 194, 0.18);
-  color: var(--cream);
-  border: 1px solid rgba(239, 219, 194, 0.35);
-  border-radius: 4px;
-  padding: 0.15rem 0.45rem;
-  font-size: 0.7rem;
-  font-weight: 600;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-}
-
-.status-unrecoverable {
-  display: inline-block;
-  background: rgba(23, 4, 38, 0.18);
-  color: var(--cream);
-  border: 1px solid rgba(23, 4, 38, 0.35);
-  border-radius: 4px;
-  padding: 0.15rem 0.45rem;
-  font-size: 0.7rem;
-  font-weight: 600;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-}
-
-.status-in_progress {
-  display: inline-block;
-  background: rgba(153, 177, 123, 0.12);
-  color: var(--ink);
-  border: 1px solid rgba(153, 177, 123, 0.3);
-  border-radius: 4px;
-  padding: 0.15rem 0.45rem;
-  font-size: 0.7rem;
-  font-weight: 600;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-}
-
-.status-open {
-  display: inline-block;
   background: rgba(239, 219, 194, 0.12);
   color: var(--cream);
-  border: 1px solid rgba(239, 219, 194, 0.25);
-  border-radius: 4px;
-  padding: 0.15rem 0.45rem;
-  font-size: 0.7rem;
-  font-weight: 600;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
+  border: 1px solid rgba(239, 219, 194, 0.28);
 }
+.status-stopped::before { background: var(--cream); opacity: 0.7; }
+
+.status-unrecoverable {
+  background: rgba(239, 219, 194, 0.07);
+  color: rgba(239, 219, 194, 0.55);
+  border: 1px solid rgba(239, 219, 194, 0.15);
+}
+.status-unrecoverable::before { background: rgba(239, 219, 194, 0.4); }
+
+.status-in_progress {
+  background: rgba(153, 177, 123, 0.1);
+  color: rgba(153, 177, 123, 0.85);
+  border: 1px solid rgba(153, 177, 123, 0.25);
+}
+.status-in_progress::before { background: rgba(153, 177, 123, 0.7); }
+
+.status-open {
+  background: rgba(239, 219, 194, 0.08);
+  color: rgba(239, 219, 194, 0.6);
+  border: 1px solid rgba(239, 219, 194, 0.18);
+}
+.status-open::before { background: rgba(239, 219, 194, 0.45); }
 
 .status-escalated {
-  display: inline-block;
-  background: rgba(239, 219, 194, 0.18);
+  background: rgba(239, 219, 194, 0.12);
   color: var(--cream);
-  border: 1px solid rgba(239, 219, 194, 0.35);
-  border-radius: 4px;
-  padding: 0.15rem 0.45rem;
-  font-size: 0.7rem;
-  font-weight: 600;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
+  border: 1px solid rgba(239, 219, 194, 0.28);
 }
+.status-escalated::before { background: var(--cream); opacity: 0.7; }
 
 .panel .status-recovered,
 .panel .status-stopped,
 .panel .status-unrecoverable,
-.panel .status-in_progress {
-  color: inherit;
-}
+.panel .status-in_progress { color: inherit; }
 
 /* ── Empty state ────────────────────────────────────────────────────────────── */
 

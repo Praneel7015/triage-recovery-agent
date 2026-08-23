@@ -128,8 +128,8 @@ export default function CasesPage() {
                     <td className={`status-${c.status}`}>{labelStatus(c.status)}</td>
                     <td className="data">{c.stepCount}</td>
                     <td>
-                      <Link href={`/cases/${c.id}`} className="btn btn-ghost" style={{ padding: "0.35rem 0.65rem", fontSize: "0.72rem" }}>
-                        Open
+                      <Link href={`/cases/${c.id}`} className="btn-open">
+                        Open →
                       </Link>
                     </td>
                   </tr>
