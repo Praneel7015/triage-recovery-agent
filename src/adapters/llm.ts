@@ -66,7 +66,7 @@ export async function generateHinglishScript(c: CaseInput, cause: FailureCause):
   script: string;
   fallback: boolean;
 }> {
-  if (!llmConfigured()) return { script: defaultHinglishScript(c), fallback: true };
+  if (!llmConfigured()) return { script: defaultHinglishScript(c, cause), fallback: true };
 
   const amount = (c.amountPaise / 100).toFixed(0);
 
@@ -87,7 +87,7 @@ Return JSON: {"script":"..."}` },
   ], { maxTokens: 700 });
 
   if (res.failed || !res.data?.script) {
-    return { script: defaultHinglishScript(c), fallback: true };
+    return { script: defaultHinglishScript(c, cause), fallback: true };
   }
   return { script: res.data.script.trim(), fallback: false };
 }
@@ -122,11 +122,40 @@ function fallback(cause: FailureCause, reason: string): LLMResult {
   };
 }
 
-function defaultHinglishScript(c: CaseInput): string {
+function defaultHinglishScript(c: CaseInput, cause?: FailureCause): string {
   const amount = (c.amountPaise / 100).toFixed(0);
-  return `Namaste ${c.customerName} ji. Aapka ₹${amount} ka payment abhi pending hai. ` +
-    `Jab aapko convenient ho, aap link se pay kar sakte hain. Koi dikkat ho to humein bataiye, ` +
-    `hum help karenge. Dhanyavaad.`;
+  const name   = c.customerName;
+
+  switch (cause) {
+    case "insufficient_funds":
+      return `Namaste ${name} ji. Aapka ₹${amount} ka payment balance ki wajah se complete nahi hua. ` +
+        `Jab account mein funds hon, aap link pe click karke payment kar sakte hain. Dhanyavaad.`;
+    case "mandate_revoked":
+      return `Namaste ${name} ji. Aapka auto-pay mandate cancel ho gaya hai, isliye ₹${amount} ka payment pending hai. ` +
+        `Aap ek baar link se manually pay kar sakte hain ya naya mandate set up kar sakte hain. Dhanyavaad.`;
+    case "instrument_expired":
+      return `Namaste ${name} ji. Aapka card expire ho gaya hai, isliye ₹${amount} ka payment nahi hua. ` +
+        `Nayi card details update karein ya link se ek-baar payment karein. Shukriya.`;
+    case "bank_outage":
+      return `Namaste ${name} ji. Aapka ₹${amount} ka payment bank ki temporary problem ki wajah se nahi hua — ` +
+        `aapki koi galti nahi. Thodi der mein link se try karein, bank theek ho jayega. Dhanyavaad.`;
+    case "psp_down":
+      return `Namaste ${name} ji. UPI app thodi der ke liye down tha, isliye ₹${amount} ka payment pending raha. ` +
+        `Ab sab theek hai — link pe click karke pay kar sakte hain. Dhanyavaad.`;
+    case "upi_hang":
+      return `Namaste ${name} ji. UPI request beech mein ruk gayi, ₹${amount} deducted nahi hua. ` +
+        `Please link se dobara try karein. Ek minute lagega. Shukriya.`;
+    case "auth_failed":
+      return `Namaste ${name} ji. PIN ya OTP sahi nahi tha, isliye ₹${amount} ka payment nahi hua. ` +
+        `Link pe click karein aur dobara try karein — is baar hoga. Dhanyavaad.`;
+    case "customer_cancelled":
+      return `Namaste ${name} ji. Lagta hai payment beech mein cancel ho gaya. ₹${amount} abhi bhi pending hai. ` +
+        `Jab ready hon, link se complete kar sakte hain. Koi pareshani ho to batayein.`;
+    default:
+      return `Namaste ${name} ji. Aapka ₹${amount} ka payment abhi pending hai. ` +
+        `Jab aapko convenient ho, aap link se pay kar sakte hain. Koi dikkat ho to humein bataiye, ` +
+        `hum help karenge. Dhanyavaad.`;
+  }
 }
 
 function buildPrompt(c: CaseInput, taxonomyCause: FailureCause): string {

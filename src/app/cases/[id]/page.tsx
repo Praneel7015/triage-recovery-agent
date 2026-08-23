@@ -5,6 +5,7 @@ import Link from "next/link";
 import { use } from "react";
 import { CampaignTimeline, type CampaignStepRow } from "@/components/CampaignTimeline";
 import { VoicePlayer } from "@/components/VoicePlayer";
+import { RazorpayCheckoutButton } from "@/components/RazorpayCheckoutButton";
 import { rupees, labelCause, labelAction, labelStatus } from "@/lib/format";
 
 interface AuditEntry {
@@ -73,8 +74,6 @@ export default function CaseFilePage({ params }: { params: Promise<{ id: string 
   const { id } = use(params);
   const [c, setC] = useState<CaseDetail | null>(null);
   const [loading, setLoading] = useState(true);
-  const [livePending, setLivePending] = useState(false);
-  const [liveError, setLiveError] = useState<string | null>(null);
 
   const reload = () =>
     fetch(`/api/cases/${id}`)
@@ -83,24 +82,6 @@ export default function CaseFilePage({ params }: { params: Promise<{ id: string 
       .catch(() => setLoading(false));
 
   useEffect(() => { reload(); }, [id]);
-
-  const createLiveLink = async () => {
-    setLivePending(true);
-    setLiveError(null);
-    try {
-      const r = await fetch("/api/live", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ caseId: id }),
-      });
-      const data = await r.json();
-      if (!data.ok) setLiveError(data.error ?? "Payment link failed");
-      await reload();
-    } catch (e: any) {
-      setLiveError(e.message);
-    }
-    setLivePending(false);
-  };
 
   if (loading) {
     return (
@@ -201,25 +182,14 @@ export default function CaseFilePage({ params }: { params: Promise<{ id: string 
             <section className="panel">
               <p className="eyebrow" style={{ marginBottom: "0.75rem" }}>Live test-mode</p>
               <p className="muted" style={{ fontSize: "0.82rem", margin: "0 0 0.85rem" }}>
-                Create a real Razorpay Payment Link for this case.
+                Pay using Razorpay test-mode — checkout opens in the same page.
               </p>
-              {c.razorpayPaymentLinkUrl ? (
-                <a
-                  href={c.razorpayPaymentLinkUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="btn btn-primary"
-                  style={{ display: "inline-flex", wordBreak: "break-all" }}
-                >
-                  Open payment link
-                </a>
+              {c.status === "recovered" ? (
+                <p style={{ fontSize: "0.85rem", color: "var(--ink)", fontWeight: 600 }}>
+                  Case already recovered.
+                </p>
               ) : (
-                <button type="button" className="btn btn-primary" onClick={createLiveLink} disabled={livePending}>
-                  {livePending ? "Creating…" : "Create payment link"}
-                </button>
-              )}
-              {liveError && (
-                <p style={{ color: "var(--danger)", fontSize: "0.8rem", marginTop: "0.65rem" }}>{liveError}</p>
+                <RazorpayCheckoutButton caseId={c.id} onSuccess={reload} />
               )}
             </section>
           )}
