@@ -639,16 +639,89 @@ select:focus-visible {
   color: var(--ink);
 }
 
-.status-recovered { color: var(--ink); }
-.status-stopped { color: var(--mint); }
-.status-unrecoverable { color: var(--mint); }
-.status-in_progress { color: var(--ink); }
+.status-recovered {
+  display: inline-block;
+  background: rgba(153, 177, 123, 0.22);
+  color: var(--ink);
+  border: 1px solid rgba(153, 177, 123, 0.5);
+  border-radius: 4px;
+  padding: 0.15rem 0.45rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.status-stopped {
+  display: inline-block;
+  background: rgba(239, 219, 194, 0.18);
+  color: var(--cream);
+  border: 1px solid rgba(239, 219, 194, 0.35);
+  border-radius: 4px;
+  padding: 0.15rem 0.45rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.status-unrecoverable {
+  display: inline-block;
+  background: rgba(23, 4, 38, 0.18);
+  color: var(--cream);
+  border: 1px solid rgba(23, 4, 38, 0.35);
+  border-radius: 4px;
+  padding: 0.15rem 0.45rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.status-in_progress {
+  display: inline-block;
+  background: rgba(153, 177, 123, 0.12);
+  color: var(--ink);
+  border: 1px solid rgba(153, 177, 123, 0.3);
+  border-radius: 4px;
+  padding: 0.15rem 0.45rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.status-open {
+  display: inline-block;
+  background: rgba(239, 219, 194, 0.12);
+  color: var(--cream);
+  border: 1px solid rgba(239, 219, 194, 0.25);
+  border-radius: 4px;
+  padding: 0.15rem 0.45rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.status-escalated {
+  display: inline-block;
+  background: rgba(239, 219, 194, 0.18);
+  color: var(--cream);
+  border: 1px solid rgba(239, 219, 194, 0.35);
+  border-radius: 4px;
+  padding: 0.15rem 0.45rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
 
 .panel .status-recovered,
 .panel .status-stopped,
 .panel .status-unrecoverable,
 .panel .status-in_progress {
-  color: var(--ink);
+  color: inherit;
 }
 
 /* ── Empty state ────────────────────────────────────────────────────────────── */

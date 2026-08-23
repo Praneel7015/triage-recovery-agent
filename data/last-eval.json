@@ -1,0 +1,60 @@
+{
+  "cases": 168,
+  "triage": {
+    "name": "Triage",
+    "treatedCases": 150,
+    "treatedRecovered": 82,
+    "holdoutCases": 18,
+    "holdoutRecovered": 4,
+    "amountAtRiskPaise": 124483400,
+    "grossRecoveredPaise": 46292700,
+    "compliantRecoveredPaise": 46292700,
+    "illegalRecoveredPaise": 0,
+    "taintedCases": 0,
+    "outreachCostPaise": 106775,
+    "netRecoveredPaise": 46185925,
+    "netBankablePaise": 46185925,
+    "roi": 433.55,
+    "costPerRupeeRecovered": 0.00231,
+    "touches": 152,
+    "absoluteLiftPct": 32.44,
+    "relativeLiftPct": 146,
+    "compliance": {
+      "illegalRetries": 0,
+      "dndViolations": 0,
+      "ignoredOptOuts": 0,
+      "outageContacts": 0
+    },
+    "avgStepsPerCase": 1.99,
+    "avgDaysToRecovery": 3.14
+  },
+  "naive": {
+    "name": "Naive",
+    "treatedCases": 150,
+    "treatedRecovered": 90,
+    "holdoutCases": 18,
+    "holdoutRecovered": 4,
+    "amountAtRiskPaise": 124483400,
+    "grossRecoveredPaise": 73161100,
+    "compliantRecoveredPaise": 72571700,
+    "illegalRecoveredPaise": 589400,
+    "taintedCases": 52,
+    "outreachCostPaise": 30175,
+    "netRecoveredPaise": 73130925,
+    "netBankablePaise": 72541525,
+    "roi": 2424.56,
+    "costPerRupeeRecovered": 0.00041,
+    "touches": 426,
+    "absoluteLiftPct": 37.78,
+    "relativeLiftPct": 170,
+    "compliance": {
+      "illegalRetries": 21,
+      "dndViolations": 50,
+      "ignoredOptOuts": 80,
+      "outageContacts": 6
+    },
+    "avgStepsPerCase": 3.84,
+    "avgDaysToRecovery": 4.71
+  },
+  "runAt": "2026-08-23T17:33:12.460Z"
+}

@@ -100,6 +100,38 @@ function CompareCol({ title, badge, run }: { title: string; badge: string; run: 
   );
 }
 
+function DemoTrigger() {
+  const [status, setStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
+  const [caseId, setCaseId] = useState<string | null>(null);
+
+  const trigger = async () => {
+    setStatus("loading");
+    try {
+      const r = await fetch("/api/demo/trigger", { method: "POST" });
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.error);
+      setCaseId(d.caseId);
+      setStatus("done");
+    } catch {
+      setStatus("error");
+    }
+  };
+
+  if (status === "done" && caseId) {
+    return (
+      <Link href={`/cases/${caseId}`} className="btn btn-ghost" style={{ color: "var(--ink)" }}>
+        → View new case
+      </Link>
+    );
+  }
+
+  return (
+    <button type="button" className="btn btn-ghost" onClick={trigger} disabled={status === "loading"}>
+      {status === "loading" ? "Simulating…" : status === "error" ? "Retry demo" : "Simulate payment failure"}
+    </button>
+  );
+}
+
 export default function LedgerPage() {
   const [runs, setRuns] = useState<BatchRun[]>([]);
   const [loading, setLoading] = useState(true);
@@ -203,6 +235,7 @@ export default function LedgerPage() {
               Open case files
             </Link>
           )}
+          <DemoTrigger />
         </div>
         {evalNote && (
           <p className="muted" style={{ margin: "0.85rem 0 0", fontSize: "0.82rem" }}>{evalNote}</p>
@@ -281,6 +314,38 @@ export default function LedgerPage() {
               <Metric label="DND violations" value={String(triage.dndViolations)} sub={`Naive: ${naive.dndViolations}`} />
               <Metric label="Ignored opt-outs" value={String(triage.ignoredOptOuts)} sub={`Naive: ${naive.ignoredOptOuts}`} />
               <Metric label="Outage contacts" value={String(triage.outageContacts)} sub={`Naive: ${naive.outageContacts}`} />
+            </div>
+          </section>
+
+          {/* Why Triage wins */}
+          <section className="panel animate-in-delay-3" style={{ marginBottom: "1.25rem" }}>
+            <p className="eyebrow" style={{ marginBottom: "1rem" }}>Why Triage wins on what matters</p>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "1rem" }}>
+              <div style={{ borderLeft: "3px solid var(--ink)", paddingLeft: "0.85rem" }}>
+                <p style={{ margin: 0, fontWeight: 700, fontSize: "1.1rem", color: "var(--ink)" }}>0 violations</p>
+                <p className="muted" style={{ margin: "0.25rem 0 0", fontSize: "0.8rem" }}>
+                  Naive breaks {naive.illegalRetries + naive.dndViolations + naive.ignoredOptOuts + naive.outageContacts} rules —
+                  DND, opt-outs, dead mandates. Revenue from those steps cannot be booked. Triage never violates a single rule.
+                </p>
+              </div>
+              <div style={{ borderLeft: "3px solid var(--ink)", paddingLeft: "0.85rem" }}>
+                <p style={{ margin: 0, fontWeight: 700, fontSize: "1.1rem", color: "var(--ink)" }}>
+                  {naive.touchesSent - triage.touchesSent} fewer touches
+                </p>
+                <p className="muted" style={{ margin: "0.25rem 0 0", fontSize: "0.8rem" }}>
+                  Naive sends {naive.touchesSent} messages. Triage sends {triage.touchesSent}. Fewer touches means
+                  lower churn risk and lower cost — without sacrificing recovery rate.
+                </p>
+              </div>
+              <div style={{ borderLeft: "3px solid var(--ink)", paddingLeft: "0.85rem" }}>
+                <p style={{ margin: 0, fontWeight: 700, fontSize: "1.1rem", color: "var(--ink)" }}>
+                  {triage.intentAccuracyPct.toFixed(0)}% intent accuracy
+                </p>
+                <p className="muted" style={{ margin: "0.25rem 0 0", fontSize: "0.8rem" }}>
+                  The LLM reads Hinglish replies and extracts intent — promise to pay, opt-out, dispute, already paid.
+                  It never selects an action. Policy does. The model earns its place by reading what humans write.
+                </p>
+              </div>
             </div>
           </section>
 

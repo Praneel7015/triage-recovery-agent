@@ -22,7 +22,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": "1st",
-    "failedAt": 1787403224,
+    "failedAt": 1784916733,
     "segment": "subscription"
   },
   {
@@ -48,7 +48,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": "7th",
-    "failedAt": 1787403224,
+    "failedAt": 1785144494,
     "segment": "subscription"
   },
   {
@@ -74,7 +74,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": "last_working",
-    "failedAt": 1787403224,
+    "failedAt": 1785372255,
     "segment": "subscription"
   },
   {
@@ -100,7 +100,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": "1st",
-    "failedAt": 1787403224,
+    "failedAt": 1785600016,
     "segment": "subscription"
   },
   {
@@ -126,7 +126,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787403224,
+    "failedAt": 1785827777,
     "segment": "subscription"
   },
   {
@@ -152,7 +152,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787403224,
+    "failedAt": 1786055538,
     "segment": "subscription"
   },
   {
@@ -178,7 +178,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": "7th",
-    "failedAt": 1787403224,
+    "failedAt": 1786283299,
     "segment": "subscription"
   },
   {
@@ -204,7 +204,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": "1st",
-    "failedAt": 1787403224,
+    "failedAt": 1786511060,
     "segment": "subscription"
   },
   {
@@ -230,7 +230,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787403224,
+    "failedAt": 1786738821,
     "segment": "subscription"
   },
   {
@@ -256,7 +256,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": "last_working",
-    "failedAt": 1787403224,
+    "failedAt": 1786966582,
     "segment": "subscription"
   },
   {
@@ -282,7 +282,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787403224,
+    "failedAt": 1787194343,
     "segment": "subscription"
   },
   {
@@ -308,7 +308,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": "1st",
-    "failedAt": 1787403224,
+    "failedAt": 1787422104,
     "segment": "subscription"
   },
   {
@@ -334,7 +334,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": "7th",
-    "failedAt": 1787403224,
+    "failedAt": 1785057865,
     "segment": "subscription"
   },
   {
@@ -360,7 +360,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787403224,
+    "failedAt": 1785285626,
     "segment": "subscription"
   },
   {
@@ -386,7 +386,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": "1st",
-    "failedAt": 1787403224,
+    "failedAt": 1785513387,
     "segment": "subscription"
   },
   {
@@ -412,7 +412,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": "7th",
-    "failedAt": 1787403224,
+    "failedAt": 1785741148,
     "segment": "subscription"
   },
   {
@@ -438,7 +438,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787403224,
+    "failedAt": 1785968909,
     "segment": "subscription"
   },
   {
@@ -464,7 +464,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": "last_working",
-    "failedAt": 1787403224,
+    "failedAt": 1786196670,
     "segment": "subscription"
   },
   {
@@ -490,7 +490,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787403224,
+    "failedAt": 1786424431,
     "segment": "subscription"
   },
   {
@@ -516,7 +516,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": "1st",
-    "failedAt": 1787403224,
+    "failedAt": 1786652192,
     "segment": "subscription"
   },
   {
@@ -542,7 +542,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787403224,
+    "failedAt": 1786879953,
     "segment": "subscription"
   },
   {
@@ -568,7 +568,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": "7th",
-    "failedAt": 1787403224,
+    "failedAt": 1787107714,
     "segment": "subscription"
   },
   {
@@ -594,7 +594,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": "1st",
-    "failedAt": 1787403224,
+    "failedAt": 1787335475,
     "segment": "subscription"
   },
   {
@@ -620,7 +620,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787403224,
+    "failedAt": 1784971236,
     "segment": "subscription"
   },
   {
@@ -646,7 +646,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": "last_working",
-    "failedAt": 1787403224,
+    "failedAt": 1785198997,
     "segment": "subscription"
   },
   {
@@ -672,7 +672,7 @@
     "hasConsented": true,
     "bankOutageActive": true,
     "salaryWindowHint": null,
-    "failedAt": 1787405024,
+    "failedAt": 1785426758,
     "segment": "subscription"
   },
   {
@@ -698,7 +698,7 @@
     "hasConsented": true,
     "bankOutageActive": true,
     "salaryWindowHint": null,
-    "failedAt": 1787405024,
+    "failedAt": 1785654519,
     "segment": "subscription"
   },
   {
@@ -724,7 +724,7 @@
     "hasConsented": true,
     "bankOutageActive": true,
     "salaryWindowHint": null,
-    "failedAt": 1787405024,
+    "failedAt": 1785882280,
     "segment": "subscription"
   },
   {
@@ -750,7 +750,7 @@
     "hasConsented": true,
     "bankOutageActive": true,
     "salaryWindowHint": null,
-    "failedAt": 1787405024,
+    "failedAt": 1786110041,
     "segment": "subscription"
   },
   {
@@ -776,7 +776,7 @@
     "hasConsented": true,
     "bankOutageActive": true,
     "salaryWindowHint": null,
-    "failedAt": 1787405024,
+    "failedAt": 1786337802,
     "segment": "subscription"
   },
   {
@@ -802,7 +802,7 @@
     "hasConsented": true,
     "bankOutageActive": true,
     "salaryWindowHint": null,
-    "failedAt": 1787405024,
+    "failedAt": 1786565563,
     "segment": "subscription"
   },
   {
@@ -828,7 +828,7 @@
     "hasConsented": true,
     "bankOutageActive": true,
     "salaryWindowHint": null,
-    "failedAt": 1787405024,
+    "failedAt": 1786793324,
     "segment": "subscription"
   },
   {
@@ -854,7 +854,7 @@
     "hasConsented": true,
     "bankOutageActive": true,
     "salaryWindowHint": null,
-    "failedAt": 1787405024,
+    "failedAt": 1787021085,
     "segment": "subscription"
   },
   {
@@ -880,7 +880,7 @@
     "hasConsented": true,
     "bankOutageActive": true,
     "salaryWindowHint": null,
-    "failedAt": 1787405024,
+    "failedAt": 1787248846,
     "segment": "subscription"
   },
   {
@@ -906,7 +906,7 @@
     "hasConsented": true,
     "bankOutageActive": true,
     "salaryWindowHint": null,
-    "failedAt": 1787405024,
+    "failedAt": 1787476607,
     "segment": "subscription"
   },
   {
@@ -932,7 +932,7 @@
     "hasConsented": true,
     "bankOutageActive": true,
     "salaryWindowHint": null,
-    "failedAt": 1787405024,
+    "failedAt": 1785112368,
     "segment": "subscription"
   },
   {
@@ -958,7 +958,7 @@
     "hasConsented": true,
     "bankOutageActive": true,
     "salaryWindowHint": null,
-    "failedAt": 1787405024,
+    "failedAt": 1785340129,
     "segment": "subscription"
   },
   {
@@ -984,7 +984,7 @@
     "hasConsented": true,
     "bankOutageActive": true,
     "salaryWindowHint": null,
-    "failedAt": 1787405024,
+    "failedAt": 1785567890,
     "segment": "subscription"
   },
   {
@@ -1010,7 +1010,7 @@
     "hasConsented": true,
     "bankOutageActive": true,
     "salaryWindowHint": null,
-    "failedAt": 1787405024,
+    "failedAt": 1785795651,
     "segment": "subscription"
   },
   {
@@ -1036,7 +1036,7 @@
     "hasConsented": true,
     "bankOutageActive": true,
     "salaryWindowHint": null,
-    "failedAt": 1787405024,
+    "failedAt": 1786023412,
     "segment": "subscription"
   },
   {
@@ -1062,7 +1062,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787399624,
+    "failedAt": 1786251173,
     "segment": "subscription"
   },
   {
@@ -1088,7 +1088,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787399624,
+    "failedAt": 1786478934,
     "segment": "subscription"
   },
   {
@@ -1114,7 +1114,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787399624,
+    "failedAt": 1786706695,
     "segment": "subscription"
   },
   {
@@ -1140,7 +1140,7 @@
     "hasConsented": false,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787399624,
+    "failedAt": 1786934456,
     "segment": "subscription"
   },
   {
@@ -1166,7 +1166,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787399624,
+    "failedAt": 1787162217,
     "segment": "subscription"
   },
   {
@@ -1192,7 +1192,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787399624,
+    "failedAt": 1787389978,
     "segment": "subscription"
   },
   {
@@ -1218,7 +1218,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787399624,
+    "failedAt": 1785025739,
     "segment": "subscription"
   },
   {
@@ -1244,7 +1244,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787399624,
+    "failedAt": 1785253500,
     "segment": "subscription"
   },
   {
@@ -1270,7 +1270,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787399624,
+    "failedAt": 1785481261,
     "segment": "subscription"
   },
   {
@@ -1296,7 +1296,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787399624,
+    "failedAt": 1785709022,
     "segment": "subscription"
   },
   {
@@ -1322,7 +1322,7 @@
     "hasConsented": false,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787399624,
+    "failedAt": 1785936783,
     "segment": "subscription"
   },
   {
@@ -1348,7 +1348,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787399624,
+    "failedAt": 1786164544,
     "segment": "subscription"
   },
   {
@@ -1374,7 +1374,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787399624,
+    "failedAt": 1786392305,
     "segment": "subscription"
   },
   {
@@ -1400,7 +1400,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787399624,
+    "failedAt": 1786620066,
     "segment": "subscription"
   },
   {
@@ -1426,7 +1426,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787399624,
+    "failedAt": 1786847827,
     "segment": "subscription"
   },
   {
@@ -1452,7 +1452,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787392424,
+    "failedAt": 1787075588,
     "segment": "subscription"
   },
   {
@@ -1478,7 +1478,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787392424,
+    "failedAt": 1787303349,
     "segment": "subscription"
   },
   {
@@ -1504,7 +1504,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787392424,
+    "failedAt": 1784939110,
     "segment": "subscription"
   },
   {
@@ -1530,7 +1530,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787392424,
+    "failedAt": 1785166871,
     "segment": "subscription"
   },
   {
@@ -1556,7 +1556,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787392424,
+    "failedAt": 1785394632,
     "segment": "subscription"
   },
   {
@@ -1582,7 +1582,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787392424,
+    "failedAt": 1785622393,
     "segment": "subscription"
   },
   {
@@ -1608,7 +1608,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787392424,
+    "failedAt": 1785850154,
     "segment": "subscription"
   },
   {
@@ -1634,7 +1634,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787392424,
+    "failedAt": 1786077915,
     "segment": "subscription"
   },
   {
@@ -1660,7 +1660,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787392424,
+    "failedAt": 1786305676,
     "segment": "subscription"
   },
   {
@@ -1686,7 +1686,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787392424,
+    "failedAt": 1786533437,
     "segment": "subscription"
   },
   {
@@ -1712,7 +1712,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787405924,
+    "failedAt": 1786761198,
     "segment": "subscription"
   },
   {
@@ -1738,7 +1738,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787405924,
+    "failedAt": 1786988959,
     "segment": "subscription"
   },
   {
@@ -1764,7 +1764,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787405924,
+    "failedAt": 1787216720,
     "segment": "subscription"
   },
   {
@@ -1790,7 +1790,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787405924,
+    "failedAt": 1787444481,
     "segment": "subscription"
   },
   {
@@ -1816,7 +1816,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787405924,
+    "failedAt": 1785080242,
     "segment": "subscription"
   },
   {
@@ -1842,7 +1842,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787405924,
+    "failedAt": 1785308003,
     "segment": "subscription"
   },
   {
@@ -1868,7 +1868,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787405924,
+    "failedAt": 1785535764,
     "segment": "subscription"
   },
   {
@@ -1894,7 +1894,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787405924,
+    "failedAt": 1785763525,
     "segment": "subscription"
   },
   {
@@ -1920,7 +1920,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787405924,
+    "failedAt": 1785991286,
     "segment": "subscription"
   },
   {
@@ -1946,7 +1946,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787405924,
+    "failedAt": 1786219047,
     "segment": "subscription"
   },
   {
@@ -1972,7 +1972,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787406224,
+    "failedAt": 1786446808,
     "segment": "subscription"
   },
   {
@@ -1998,7 +1998,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787406224,
+    "failedAt": 1786674569,
     "segment": "subscription"
   },
   {
@@ -2024,7 +2024,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787406224,
+    "failedAt": 1786902330,
     "segment": "subscription"
   },
   {
@@ -2050,7 +2050,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787406224,
+    "failedAt": 1787130091,
     "segment": "subscription"
   },
   {
@@ -2076,7 +2076,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787406224,
+    "failedAt": 1787357852,
     "segment": "subscription"
   },
   {
@@ -2102,7 +2102,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787405624,
+    "failedAt": 1784993613,
     "segment": "subscription"
   },
   {
@@ -2128,7 +2128,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787405624,
+    "failedAt": 1785221374,
     "segment": "subscription"
   },
   {
@@ -2154,7 +2154,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787405624,
+    "failedAt": 1785449135,
     "segment": "subscription"
   },
   {
@@ -2180,7 +2180,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787405624,
+    "failedAt": 1785676896,
     "segment": "subscription"
   },
   {
@@ -2206,7 +2206,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787405624,
+    "failedAt": 1785904657,
     "segment": "subscription"
   },
   {
@@ -2233,7 +2233,7 @@
     "bankOutageActive": false,
     "salaryWindowHint": "1st",
     "promiseToPay": "2026-08-25",
-    "failedAt": 1787320424,
+    "failedAt": 1786132418,
     "segment": "subscription"
   },
   {
@@ -2260,7 +2260,7 @@
     "bankOutageActive": false,
     "salaryWindowHint": "1st",
     "promiseToPay": "2026-08-25",
-    "failedAt": 1787320424,
+    "failedAt": 1786360179,
     "segment": "subscription"
   },
   {
@@ -2287,7 +2287,7 @@
     "bankOutageActive": false,
     "salaryWindowHint": "1st",
     "promiseToPay": "2026-08-25",
-    "failedAt": 1787320424,
+    "failedAt": 1786587940,
     "segment": "subscription"
   },
   {
@@ -2314,7 +2314,7 @@
     "bankOutageActive": false,
     "salaryWindowHint": "1st",
     "promiseToPay": "2026-08-25",
-    "failedAt": 1787320424,
+    "failedAt": 1786815701,
     "segment": "subscription"
   },
   {
@@ -2341,7 +2341,7 @@
     "bankOutageActive": false,
     "salaryWindowHint": "1st",
     "promiseToPay": "2026-08-25",
-    "failedAt": 1787320424,
+    "failedAt": 1787043462,
     "segment": "subscription"
   },
   {
@@ -2367,7 +2367,7 @@
     "hasConsented": false,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787403224,
+    "failedAt": 1787271223,
     "segment": "subscription"
   },
   {
@@ -2393,7 +2393,7 @@
     "hasConsented": false,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787403224,
+    "failedAt": 1787498984,
     "segment": "subscription"
   },
   {
@@ -2419,7 +2419,7 @@
     "hasConsented": false,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787403224,
+    "failedAt": 1785134745,
     "segment": "subscription"
   },
   {
@@ -2445,7 +2445,7 @@
     "hasConsented": false,
     "bankOutageActive": true,
     "salaryWindowHint": null,
-    "failedAt": 1787403224,
+    "failedAt": 1785362506,
     "segment": "subscription"
   },
   {
@@ -2471,7 +2471,7 @@
     "hasConsented": false,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787403224,
+    "failedAt": 1785590267,
     "segment": "subscription"
   },
   {
@@ -2498,7 +2498,7 @@
     "bankOutageActive": false,
     "salaryWindowHint": null,
     "alreadyPaid": true,
-    "failedAt": 1787399624,
+    "failedAt": 1785818028,
     "segment": "subscription"
   },
   {
@@ -2525,7 +2525,7 @@
     "bankOutageActive": false,
     "salaryWindowHint": null,
     "alreadyPaid": true,
-    "failedAt": 1787399624,
+    "failedAt": 1786045789,
     "segment": "subscription"
   },
   {
@@ -2552,7 +2552,7 @@
     "bankOutageActive": false,
     "salaryWindowHint": null,
     "alreadyPaid": true,
-    "failedAt": 1787399624,
+    "failedAt": 1786273550,
     "segment": "subscription"
   },
   {
@@ -2579,7 +2579,7 @@
     "bankOutageActive": false,
     "salaryWindowHint": null,
     "alreadyPaid": true,
-    "failedAt": 1787399624,
+    "failedAt": 1786501311,
     "segment": "subscription"
   },
   {
@@ -2605,7 +2605,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787406387,
+    "failedAt": 1786729072,
     "segment": "subscription"
   },
   {
@@ -2631,7 +2631,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": "1st",
-    "failedAt": 1787483857,
+    "failedAt": 1786956833,
     "segment": "subscription"
   },
   {
@@ -2657,7 +2657,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787480257,
+    "failedAt": 1787184594,
     "segment": "subscription"
   },
   {
@@ -2683,7 +2683,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787476657,
+    "failedAt": 1787412355,
     "segment": "subscription"
   },
   {
@@ -2709,7 +2709,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787473057,
+    "failedAt": 1785048116,
     "segment": "subscription"
   },
   {
@@ -2735,7 +2735,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": "1st",
-    "failedAt": 1787469457,
+    "failedAt": 1785275877,
     "segment": "subscription"
   },
   {
@@ -2761,7 +2761,7 @@
     "hasConsented": false,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787465857,
+    "failedAt": 1785503638,
     "segment": "subscription"
   },
   {
@@ -2787,7 +2787,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787462257,
+    "failedAt": 1785731399,
     "segment": "subscription"
   },
   {
@@ -2813,7 +2813,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787458657,
+    "failedAt": 1785959160,
     "segment": "subscription"
   },
   {
@@ -2839,7 +2839,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": "1st",
-    "failedAt": 1787455057,
+    "failedAt": 1786186921,
     "segment": "subscription"
   },
   {
@@ -2865,7 +2865,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787451457,
+    "failedAt": 1786414682,
     "segment": "subscription"
   },
   {
@@ -2891,7 +2891,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787447857,
+    "failedAt": 1786642443,
     "segment": "subscription"
   },
   {
@@ -2917,7 +2917,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787444257,
+    "failedAt": 1786870204,
     "segment": "subscription"
   },
   {
@@ -2943,7 +2943,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": "1st",
-    "failedAt": 1787440657,
+    "failedAt": 1787097965,
     "segment": "subscription"
   },
   {
@@ -2969,7 +2969,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787437057,
+    "failedAt": 1787325726,
     "segment": "subscription"
   },
   {
@@ -2995,7 +2995,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787433457,
+    "failedAt": 1784961487,
     "segment": "subscription"
   },
   {
@@ -3021,7 +3021,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787429857,
+    "failedAt": 1785189248,
     "segment": "subscription"
   },
   {
@@ -3047,7 +3047,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": "1st",
-    "failedAt": 1787426257,
+    "failedAt": 1785417009,
     "segment": "subscription"
   },
   {
@@ -3073,7 +3073,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787422657,
+    "failedAt": 1785644770,
     "segment": "subscription"
   },
   {
@@ -3099,7 +3099,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787486857,
+    "failedAt": 1785872531,
     "segment": "checkout"
   },
   {
@@ -3125,7 +3125,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787486257,
+    "failedAt": 1786100292,
     "segment": "checkout"
   },
   {
@@ -3151,7 +3151,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787485657,
+    "failedAt": 1786328053,
     "segment": "checkout"
   },
   {
@@ -3177,7 +3177,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787485057,
+    "failedAt": 1786555814,
     "segment": "checkout"
   },
   {
@@ -3203,7 +3203,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787484457,
+    "failedAt": 1786783575,
     "segment": "checkout"
   },
   {
@@ -3229,7 +3229,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787483857,
+    "failedAt": 1787011336,
     "segment": "checkout"
   },
   {
@@ -3255,7 +3255,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787483257,
+    "failedAt": 1787239097,
     "segment": "checkout"
   },
   {
@@ -3281,7 +3281,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787482657,
+    "failedAt": 1787466858,
     "segment": "checkout"
   },
   {
@@ -3307,7 +3307,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787482057,
+    "failedAt": 1785102619,
     "segment": "checkout"
   },
   {
@@ -3333,7 +3333,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787481457,
+    "failedAt": 1785330380,
     "segment": "checkout"
   },
   {
@@ -3359,7 +3359,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787480857,
+    "failedAt": 1785558141,
     "segment": "checkout"
   },
   {
@@ -3385,7 +3385,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787480257,
+    "failedAt": 1785785902,
     "segment": "checkout"
   },
   {
@@ -3411,7 +3411,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787479657,
+    "failedAt": 1786013663,
     "segment": "checkout"
   },
   {
@@ -3437,7 +3437,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787479057,
+    "failedAt": 1786241424,
     "segment": "checkout"
   },
   {
@@ -3463,7 +3463,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787478457,
+    "failedAt": 1786469185,
     "segment": "checkout"
   },
   {
@@ -3489,7 +3489,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787477857,
+    "failedAt": 1786696946,
     "segment": "checkout"
   },
   {
@@ -3515,7 +3515,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787477257,
+    "failedAt": 1786924707,
     "segment": "checkout"
   },
   {
@@ -3541,7 +3541,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787476657,
+    "failedAt": 1787152468,
     "segment": "checkout"
   },
   {
@@ -3567,7 +3567,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787476057,
+    "failedAt": 1787380229,
     "segment": "checkout"
   },
   {
@@ -3593,7 +3593,7 @@
     "hasConsented": true,
     "bankOutageActive": false,
     "salaryWindowHint": null,
-    "failedAt": 1787475457,
+    "failedAt": 1785015990,
     "segment": "checkout"
   },
   {
@@ -3622,7 +3622,7 @@
     "invoiceId": "INV-2026-1000",
     "invoiceDueDate": "2026-08-11",
     "agingDays": 12,
-    "failedAt": 1786450657,
+    "failedAt": 1785243751,
     "segment": "b2b_invoice"
   },
   {
@@ -3651,7 +3651,7 @@
     "invoiceId": "INV-2026-1001",
     "invoiceDueDate": "2026-08-05",
     "agingDays": 18,
-    "failedAt": 1785932257,
+    "failedAt": 1785471512,
     "segment": "b2b_invoice"
   },
   {
@@ -3680,7 +3680,7 @@
     "invoiceId": "INV-2026-1002",
     "invoiceDueDate": "2026-07-29",
     "agingDays": 25,
-    "failedAt": 1785327457,
+    "failedAt": 1785699273,
     "segment": "b2b_invoice"
   },
   {
@@ -3709,7 +3709,7 @@
     "invoiceId": "INV-2026-1003",
     "invoiceDueDate": "2026-07-23",
     "agingDays": 31,
-    "failedAt": 1784809057,
+    "failedAt": 1785927034,
     "segment": "b2b_invoice"
   },
   {
@@ -3738,7 +3738,7 @@
     "invoiceId": "INV-2026-1004",
     "invoiceDueDate": "2026-07-16",
     "agingDays": 38,
-    "failedAt": 1784204257,
+    "failedAt": 1786154795,
     "segment": "b2b_invoice"
   },
   {
@@ -3767,7 +3767,7 @@
     "invoiceId": "INV-2026-1005",
     "invoiceDueDate": "2026-07-09",
     "agingDays": 45,
-    "failedAt": 1783599457,
+    "failedAt": 1786382556,
     "segment": "b2b_invoice"
   },
   {
@@ -3796,7 +3796,7 @@
     "invoiceId": "INV-2026-1006",
     "invoiceDueDate": "2026-07-02",
     "agingDays": 52,
-    "failedAt": 1782994657,
+    "failedAt": 1786610317,
     "segment": "b2b_invoice"
   },
   {
@@ -3825,7 +3825,7 @@
     "invoiceId": "INV-2026-1007",
     "invoiceDueDate": "2026-06-23",
     "agingDays": 61,
-    "failedAt": 1782217057,
+    "failedAt": 1786838078,
     "segment": "b2b_invoice"
   },
   {
@@ -3854,7 +3854,7 @@
     "invoiceId": "INV-2026-1008",
     "invoiceDueDate": "2026-06-16",
     "agingDays": 68,
-    "failedAt": 1781612257,
+    "failedAt": 1787065839,
     "segment": "b2b_invoice"
   },
   {
@@ -3883,7 +3883,7 @@
     "invoiceId": "INV-2026-1009",
     "invoiceDueDate": "2026-06-09",
     "agingDays": 75,
-    "failedAt": 1781007457,
+    "failedAt": 1787293600,
     "segment": "b2b_invoice"
   },
   {
@@ -3912,7 +3912,7 @@
     "invoiceId": "INV-2026-1010",
     "invoiceDueDate": "2026-08-08",
     "agingDays": 15,
-    "failedAt": 1786191457,
+    "failedAt": 1784929361,
     "segment": "b2b_invoice"
   },
   {
@@ -3941,7 +3941,7 @@
     "invoiceId": "INV-2026-1011",
     "invoiceDueDate": "2026-08-01",
     "agingDays": 22,
-    "failedAt": 1785586657,
+    "failedAt": 1785157122,
     "segment": "b2b_invoice"
   },
   {
@@ -3970,7 +3970,7 @@
     "invoiceId": "INV-2026-1012",
     "invoiceDueDate": "2026-07-25",
     "agingDays": 29,
-    "failedAt": 1784981857,
+    "failedAt": 1785384883,
     "segment": "b2b_invoice"
   },
   {
@@ -3999,7 +3999,7 @@
     "invoiceId": "INV-2026-1013",
     "invoiceDueDate": "2026-07-18",
     "agingDays": 36,
-    "failedAt": 1784377057,
+    "failedAt": 1785612644,
     "segment": "b2b_invoice"
   },
   {
@@ -4028,7 +4028,7 @@
     "invoiceId": "INV-2026-1014",
     "invoiceDueDate": "2026-07-11",
     "agingDays": 43,
-    "failedAt": 1783772257,
+    "failedAt": 1785840405,
     "segment": "b2b_invoice"
   },
   {
@@ -4057,7 +4057,7 @@
     "invoiceId": "INV-2026-1015",
     "invoiceDueDate": "2026-07-04",
     "agingDays": 50,
-    "failedAt": 1783167457,
+    "failedAt": 1786068166,
     "segment": "b2b_invoice"
   },
   {
@@ -4086,7 +4086,7 @@
     "invoiceId": "INV-2026-1016",
     "invoiceDueDate": "2026-06-27",
     "agingDays": 57,
-    "failedAt": 1782562657,
+    "failedAt": 1786295927,
     "segment": "b2b_invoice"
   },
   {
@@ -4115,7 +4115,7 @@
     "invoiceId": "INV-2026-1017",
     "invoiceDueDate": "2026-06-20",
     "agingDays": 64,
-    "failedAt": 1781957857,
+    "failedAt": 1786523688,
     "segment": "b2b_invoice"
   },
   {
@@ -4144,7 +4144,7 @@
     "invoiceId": "INV-2026-1018",
     "invoiceDueDate": "2026-06-13",
     "agingDays": 71,
-    "failedAt": 1781353057,
+    "failedAt": 1786751449,
     "segment": "b2b_invoice"
   },
   {
@@ -4173,7 +4173,7 @@
     "invoiceId": "INV-2026-1019",
     "invoiceDueDate": "2026-06-06",
     "agingDays": 78,
-    "failedAt": 1780748257,
+    "failedAt": 1786979210,
     "segment": "b2b_invoice"
   },
   {
@@ -4202,7 +4202,7 @@
     "invoiceId": "INV-2026-1020",
     "invoiceDueDate": "2026-08-09",
     "agingDays": 14,
-    "failedAt": 1786277857,
+    "failedAt": 1787206971,
     "segment": "b2b_invoice"
   },
   {
@@ -4231,7 +4231,7 @@
     "invoiceId": "INV-2026-1021",
     "invoiceDueDate": "2026-08-02",
     "agingDays": 21,
-    "failedAt": 1785673057,
+    "failedAt": 1787434732,
     "segment": "b2b_invoice"
   },
   {
@@ -4260,7 +4260,7 @@
     "invoiceId": "INV-2026-1022",
     "invoiceDueDate": "2026-07-26",
     "agingDays": 28,
-    "failedAt": 1785068257,
+    "failedAt": 1785070493,
     "segment": "b2b_invoice"
   },
   {
@@ -4289,7 +4289,7 @@
     "invoiceId": "INV-2026-1023",
     "invoiceDueDate": "2026-07-19",
     "agingDays": 35,
-    "failedAt": 1784463457,
+    "failedAt": 1785298254,
     "segment": "b2b_invoice"
   },
   {
@@ -4318,7 +4318,7 @@
     "invoiceId": "INV-2026-1024",
     "invoiceDueDate": "2026-07-12",
     "agingDays": 42,
-    "failedAt": 1783858657,
+    "failedAt": 1785526015,
     "segment": "b2b_invoice"
   },
   {
@@ -4347,7 +4347,7 @@
     "invoiceId": "INV-2026-1025",
     "invoiceDueDate": "2026-07-05",
     "agingDays": 49,
-    "failedAt": 1783253857,
+    "failedAt": 1785753776,
     "segment": "b2b_invoice"
   },
   {
@@ -4376,7 +4376,7 @@
     "invoiceId": "INV-2026-1026",
     "invoiceDueDate": "2026-06-28",
     "agingDays": 56,
-    "failedAt": 1782649057,
+    "failedAt": 1785981537,
     "segment": "b2b_invoice"
   },
   {
@@ -4405,7 +4405,7 @@
     "invoiceId": "INV-2026-1027",
     "invoiceDueDate": "2026-06-21",
     "agingDays": 63,
-    "failedAt": 1782044257,
+    "failedAt": 1786209298,
     "segment": "b2b_invoice"
   },
   {
@@ -4434,7 +4434,7 @@
     "invoiceId": "INV-2026-1028",
     "invoiceDueDate": "2026-06-14",
     "agingDays": 70,
-    "failedAt": 1781439457,
+    "failedAt": 1786437059,
     "segment": "b2b_invoice"
   },
   {
@@ -4463,7 +4463,7 @@
     "invoiceId": "INV-2026-1029",
     "invoiceDueDate": "2026-06-07",
     "agingDays": 77,
-    "failedAt": 1780834657,
+    "failedAt": 1786664820,
     "segment": "b2b_invoice"
   }
 ]
