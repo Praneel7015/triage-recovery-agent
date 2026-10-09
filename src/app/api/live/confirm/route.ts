@@ -1,9 +1,6 @@
 import { NextResponse } from "next/server";
-import { db } from "@/db/client";
-import { cases, auditLog } from "@/db/schema";
-import { eq } from "drizzle-orm";
-import { randomUUID } from "crypto";
-import crypto from "crypto";
+import { markCaseRecovered } from "@/lib/markRecovered";
+import { verifyCheckoutSignature } from "@/adapters/razorpay";
 import { migrate } from "@/db/migrate";
 
 migrate();
@@ -28,35 +25,23 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
   }
 
-  const keySecret = process.env.RAZORPAY_KEY_SECRET;
-  if (!keySecret) {
+  if (!process.env.RAZORPAY_KEY_SECRET) {
     return NextResponse.json({ error: "Razorpay key secret not configured" }, { status: 500 });
   }
 
-  const expected = crypto
-    .createHmac("sha256", keySecret)
-    .update(`${razorpay_order_id}|${razorpay_payment_id}`)
-    .digest("hex");
-
-  if (!crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(razorpay_signature))) {
+  if (!verifyCheckoutSignature(razorpay_order_id, razorpay_payment_id, razorpay_signature)) {
     return NextResponse.json({ error: "Payment signature invalid" }, { status: 400 });
   }
 
-  const now = Math.floor(Date.now() / 1000);
-
-  db.update(cases)
-    .set({ status: "recovered", resolvedAt: now, updatedAt: now, razorpayPaymentId: razorpay_payment_id })
-    .where(eq(cases.id, caseId))
-    .run();
-
-  db.insert(auditLog).values({
-    id: randomUUID(),
+  const result = markCaseRecovered({
     caseId,
-    ts: now,
-    actor: "webhook",
-    event: "payment_received",
+    paymentId: razorpay_payment_id,
     detail: `Inline checkout: payment ${razorpay_payment_id} verified. Case marked recovered.`,
-  }).run();
+  });
 
-  return NextResponse.json({ ok: true });
+  if (!result.ok) {
+    return NextResponse.json({ error: "Case not found" }, { status: 404 });
+  }
+
+  return NextResponse.json({ ok: true, alreadyRecovered: result.alreadyRecovered });
 }

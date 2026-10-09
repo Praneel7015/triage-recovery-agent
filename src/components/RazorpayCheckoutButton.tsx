@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 interface RazorpayOrderPayload {
   orderId: string;
@@ -25,23 +25,36 @@ declare global {
   }
 }
 
+function loadCheckoutScript(): Promise<void> {
+  if (typeof window === "undefined") return Promise.reject(new Error("window missing"));
+  if (window.Razorpay) return Promise.resolve();
+
+  const existing = document.getElementById("rzp-checkout-script") as HTMLScriptElement | null;
+  if (existing) {
+    return new Promise((resolve, reject) => {
+      if (window.Razorpay) return resolve();
+      existing.addEventListener("load", () => resolve(), { once: true });
+      existing.addEventListener("error", () => reject(new Error("checkout.js failed to load")), { once: true });
+    });
+  }
+
+  return new Promise((resolve, reject) => {
+    const s = document.createElement("script");
+    s.id = "rzp-checkout-script";
+    s.src = "https://checkout.razorpay.com/v1/checkout.js";
+    s.async = true;
+    s.onload = () => resolve();
+    s.onerror = () => reject(new Error("checkout.js failed to load"));
+    document.body.appendChild(s);
+  });
+}
+
 export function RazorpayCheckoutButton({ caseId, onSuccess }: Props) {
   const [status, setStatus] = useState<"idle" | "loading" | "open" | "success" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
-  const scriptLoaded = useRef(false);
 
-  // Load checkout.js once.
   useEffect(() => {
-    if (scriptLoaded.current || document.getElementById("rzp-checkout-script")) {
-      scriptLoaded.current = true;
-      return;
-    }
-    const s = document.createElement("script");
-    s.id  = "rzp-checkout-script";
-    s.src = "https://checkout.razorpay.com/v1/checkout.js";
-    s.async = true;
-    document.body.appendChild(s);
-    scriptLoaded.current = true;
+    void loadCheckoutScript().catch(() => {});
   }, []);
 
   const openCheckout = useCallback(async () => {
@@ -49,6 +62,8 @@ export function RazorpayCheckoutButton({ caseId, onSuccess }: Props) {
     setError(null);
 
     try {
+      await loadCheckoutScript();
+
       const r = await fetch("/api/live/order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -63,7 +78,7 @@ export function RazorpayCheckoutButton({ caseId, onSuccess }: Props) {
       }
 
       if (!window.Razorpay) {
-        setError("Razorpay checkout script not loaded yet. Try again in a moment.");
+        setError("Razorpay checkout did not load. Use the Payment Link below.");
         setStatus("error");
         return;
       }
@@ -116,7 +131,7 @@ export function RazorpayCheckoutButton({ caseId, onSuccess }: Props) {
 
       rzp.open();
     } catch (e: any) {
-      setError(e.message ?? "Checkout failed");
+      setError(e.message ?? "Checkout failed. Use the Payment Link below.");
       setStatus("error");
     }
   }, [caseId, onSuccess]);

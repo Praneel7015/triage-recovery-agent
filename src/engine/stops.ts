@@ -45,6 +45,7 @@ const OUTREACH_ACTIONS: RecoveryAction[] = [
   "send_one_time_payment_link",
   "offer_pause",
   "hinglish_voice_script",
+  "escalate_human",
 ];
 
 function isOutreach(a: RecoveryAction): boolean {

@@ -2,9 +2,11 @@
 
 ## Overview
 
-Triage is a **fiduciary agent** for Indian subscription payments. It closes the loop from a failed Razorpay webhook to a measured recovery outcome, with a full audit trail and hard stopping rules.
+Triage is a **fiduciary agent** for Indian Autopay failures. It closes the loop from a failed Razorpay webhook to a measured recovery outcome, with a full audit trail and hard stopping rules.
 
-The core claim: **recovery is a diagnosis problem, not a messaging problem.** Retrying the wrong cause fails. Contacting a DND customer is illegal. Retrying a revoked mandate is fraudulent. Triage prevents all three — and proves it numerically.
+The core claim: **recovery is a diagnosis problem, not a messaging problem.** Retrying the wrong cause fails. Contacting a DND customer is illegal. Retrying a revoked mandate is fraudulent. Triage prevents all three.
+
+It does **not** claim to recover more rupees than spam. On the 168-case batch, Naive recovers more gross and more bankable rupees. Triage's result is 0 rule breaks, fewer touches, and money a merchant can actually book. That is the shippable product.
 
 ---
 
@@ -21,46 +23,29 @@ The core claim: **recovery is a diagnosis problem, not a messaging problem.** Re
                     ┌─────────────────────────────────┐
                     │        CASE STORE               │
                     │  SQLite · cases table           │
-                    │  Fields: error_reason,          │
-                    │  subscription_state, retry_count│
-                    │  isDnd, promiseToPay, etc.      │
                     └──────────────┬──────────────────┘
                                    │
                     ┌──────────────▼──────────────────┐
                     │     CAUSE TAXONOMY              │
                     │  src/engine/taxonomy.ts         │
-                    │  Maps Razorpay error fields →   │
-                    │  FailureCause (deterministic)   │
+                    │  Razorpay error fields → cause  │
                     │                                 │
-                    │  If cause === "unknown":         │
-                    │  ┌───────────────────────────┐  │
-                    │  │ LLM (OpenAI-compatible)   │  │
-                    │  │ 8s timeout → fallback     │  │
-                    │  │ Returns JSON: cause +     │  │
-                    │  │ narrative + confidence    │  │
-                    │  └───────────────────────────┘  │
+                    │  If needsInterpretation():      │
+                    │  LLM, 12s timeout × 2 attempts  │
+                    │  queued; 429 backoff            │
+                    │  fallback → taxonomy holds      │
                     └──────────────┬──────────────────┘
                                    │
                     ┌──────────────▼──────────────────┐
                     │       POLICY GRAPH              │
                     │  src/engine/policy.ts           │
-                    │  cause × state × retryCount →  │
-                    │  RecoveryAction (closed set)    │
-                    │                                 │
+                    │  cause × stepIndex → action     │
                     │  ONLY place action is selected. │
-                    │  LLM suggestion is ignored.     │
                     └──────────────┬──────────────────┘
                                    │
                     ┌──────────────▼──────────────────┐
                     │        STOP RULES               │
                     │  src/engine/stops.ts            │
-                    │  Ordered vetoes:                │
-                    │  already_paid | npci_cap |      │
-                    │  mandate_revoked | dnd |        │
-                    │  bank_outage | ptp_pending |    │
-                    │  max_touches | amount_floor |   │
-                    │  low_confidence                 │
-                    │                                 │
                     │  ONLY place action can be       │
                     │  vetoed. Policy wins over LLM.  │
                     └──────────────┬──────────────────┘
@@ -70,38 +55,17 @@ The core claim: **recovery is a diagnosis problem, not a messaging problem.** Re
                         ▼                     ▼
                  ┌─────────────┐    ┌──────────────────────┐
                  │ Audit log   │    │      EXECUTOR        │
-                 │ stop_code   │    │                      │
-                 │ Case:stopped│    │  Simulator (eval):   │
-                 └─────────────┘    │  cause-faithful      │
-                                    │  success probability │
-                                    │                      │
-                                    │  Razorpay (live):    │
-                                    │  paymentLink.create  │
-                                    │  HMAC webhook verify │
-                                    └──────────┬───────────┘
+                 │             │    │  Eval: simulator     │
+                 │             │    │  Live: first action  │
+                 │             │    │  + paymentLink.create│
+                 │             │    │  or Checkout.js order│
+                 └─────────────┘    └──────────┬───────────┘
                                                │
                                     ┌──────────▼───────────┐
-                                    │    AUDIT LEDGER      │
-                                    │  Every action logged │
-                                    │  with actor + event  │
-                                    │  + detail + flags    │
-                                    │  (llm_fallback,      │
-                                    │   policy_override)   │
-                                    └──────────┬───────────┘
-                                               │
-                                    ┌──────────▼───────────┐
-                                    │   CONTROL TOWER      │
-                                    │  Next.js App Router  │
-                                    │                      │
-                                    │  / — Scoreboard      │
-                                    │  Triage vs Naive:    │
-                                    │  ₹ recovered, stops, │
-                                    │  illegal retries,    │
-                                    │  DND violations      │
-                                    │                      │
-                                    │  /cases — Case list  │
-                                    │  /cases/[id] —       │
-                                    │  Full audit timeline │
+                                    │   AUDIT + LEDGER     │
+                                    │  actor, event, flags │
+                                    │  llm_fallback,       │
+                                    │  policy_override     │
                                     └──────────────────────┘
 ```
 
@@ -109,59 +73,55 @@ The core claim: **recovery is a diagnosis problem, not a messaging problem.** Re
 
 ## Why policy > LLM for money moves
 
-LLMs are non-deterministic, can be unavailable, and have no concept of regulatory caps.  
-A "fiduciary" agent must be verifiable — every money action must have a machine-readable reason.
+LLMs are non-deterministic, can be unavailable, and have no concept of NPCI retry caps or TRAI DND. A fiduciary agent must be verifiable.
 
-The architecture enforces this structurally:
+Enforced structurally:
 - `policy.ts` is the only function that returns a `RecoveryAction`
 - `stops.ts` is the only function that can block it
 - The LLM receives no tool-calling surface that touches payments
-- If the LLM is down, `llm_fallback: true` is logged and taxonomy-only result is used
-
-This is the "AI judgment + bounded money actions" property the panel evaluates.
+- If the LLM is down, `llm_fallback: true` is logged and taxonomy-only result is used. The campaign still runs.
 
 ---
 
 ## Eval methodology
 
-The simulator is **cause-faithful**, not random:
+The simulator is **cause-faithful**, not random. Both arms see the **same 168 cases**, the same 10% holdout, and the same success tables. Naive runs a fixed six-step cadence (silent retry, then links, then voice) with **no diagnosis and no stop rules**.
 
-| Cause | Action | Simulated success rate |
-|---|---|---|
-| `insufficient_funds` + `silent_retry_at_window` | 65–80% (salary boost) |
-| `bank_outage` + `do_nothing` | 80% (outage clears) |
-| `bank_outage` + any contact | 0% (outage still active) |
-| `mandate_revoked` + `silent_retry_at_window` | 0% (always illegal) |
-| `mandate_revoked` + `send_one_time_payment_link` | 45% |
-| `customer_cancelled` + `do_nothing` | 0% (correct; no recovery attempted) |
+Illegal recovery is attributed only to the **step that broke a rule**. A later legal payment link on a tainted campaign still counts as bankable. That is the honest accounting — and it is why Naive still wins rupees. We do not cook P(recover) to invert that.
 
-The eval runs both Triage and Naive on the **same 100 cases** with the same simulator. The naive baseline always picks `silent_retry_at_window` (like a blunt cron job). The counterfactual shows the diagnosis advantage, not just a cherry-picked lucky run.
+Checkout (`segment: checkout`) and B2B invoice (`segment: b2b_invoice`) rows exist so the batch is not 100% subscriptions. Policy does **not** branch on `segment` or `agingDays`. They are dataset mix, not product lanes.
+
+`npm run eval` writes `data/last-eval.json`. The ledger API serves the latest SQLite batch run, and falls back to that file so the homepage is never empty.
 
 ---
 
-## Graceful failure story
+## Graceful failure (LLM down)
 
-When the LLM API key is missing or the call times out (8s):
+When `LLM_API_KEY` is missing, the provider returns 4xx/429, or the call exceeds 12s:
 
-1. `llm.ts` returns `fallback: true`
-2. `agent.ts` uses taxonomy-only cause (usually sufficient)
-3. Audit log records `llm_fallback` flag on the relevant entry
-4. `npm run eval` still completes with `"llmFallbacks": N`
-5. The scoreboard shows `LLM fallbacks: N` in the Triage column
+1. `llmClient.ts` returns `failed: true` (no throw)
+2. `llm.ts` returns `fallback: true` with a reason
+3. `agent.ts` keeps the taxonomy cause, logs `llm_fallback`
+4. Policy and stops still select / veto the action
+5. Eval completes. Scoreboard shows `LLM fallbacks: N`
 
-The agent degrades gracefully — it never returns a 500 error, and taxonomy-only still beats naive.
+The agent never 500s because a model is down. Taxonomy-only is a working product, not a degraded demo.
 
 ---
 
-## Live Razorpay path (test mode)
+## Live Razorpay path (test mode) — single-shot
 
-1. Set `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET` (test mode keys from Razorpay Dashboard)
-2. Set `RAZORPAY_WEBHOOK_SECRET` and configure webhook URL in Dashboard
-3. Open any Triage case in the UI → click "Create Payment Link"
-4. `POST /api/live` calls `razorpay.paymentLink.create()`
-5. Real `rzp_test_` URL is returned and stored on the case
-6. Paying on the test link fires `payment_link.paid` webhook → case marked `recovered`
-7. If `paymentLink.create()` throws (wrong keys, network error), the error is caught, logged as `executor_failure`, and the response includes `escalated: true` — the graceful fallback
+This is **not** the 30-day sequencer. Live ingest runs `runAgent()` once: diagnose + first action + optional Payment Link.
+
+1. `payment.failed` / `subscription.pending` webhook, or `POST /api/demo/trigger`
+2. `ingestFailedPayment` opens a case file
+3. `kickLiveCase` runs the agent; if the action is a link, `paymentLink.create()` with `notes.case_id`
+4. Case file: Checkout.js (`POST /api/live/order` → test card → `POST /api/live/confirm` verifies HMAC) **or** pay the Payment Link
+5. `payment_link.paid` / `payment.captured` webhook, or confirmed signature, calls `markCaseRecovered`
+6. Audit actor is `webhook`. The LLM is not in this path.
+7. If `paymentLink.create()` throws: `executor_failure` is logged, `escalated: true` — the case stays open for a human
+
+Webhook HMAC is verified. Checkout confirm verifies `order_id|payment_id`. Recovered writes are idempotent.
 
 ---
 
@@ -171,46 +131,30 @@ The agent degrades gracefully — it never returns a 500 error, and taxonomy-onl
 src/
   engine/
     taxonomy.ts      — Razorpay error fields → FailureCause
-    policy.ts        — cause × state × retry → RecoveryAction
+    policy.ts        — cause × step → RecoveryAction
     stops.ts         — ordered veto rules
-    agent.ts         — diagnose → policy → stops → audit
-    sequencer.ts     — 30-day campaign runner + reply loop
-    naive.ts         — spam baseline for comparison
-    economics.ts     — net recovery, ROI, cost per rupee
-    holdout.ts       — incremental lift vs never-contacted arm
-    rng.ts           — deterministic seeded simulator
+    agent.ts         — diagnose → policy → stops (single-shot)
+    sequencer.ts     — 30-day campaign runner (eval only)
+    naive.ts         — fixed-cadence baseline
+    economics.ts / holdout.ts / rng.ts
 
   adapters/
-    simulator.ts     — cause-faithful success/fail for eval
+    simulator.ts     — cause-faithful eval outcomes
     razorpay.ts      — Payment Links + webhook HMAC
-    ingest.ts        — live payment.failed → open case file
-    conversation.ts  — Hinglish inbound replies + intent extraction
-    llm.ts           — structured LLM output + copy generation
-    llmClient.ts     — shared LLM client with retry
-
-  db/
-    schema.ts        — cases, campaign_steps, audit_log, batch_runs
-    client.ts        — Drizzle + SQLite
-    migrate.ts       — schema bootstrap + column migrations
+    ingest.ts        — live payment.failed → case + first action
+    conversation.ts  — simulated Hinglish replies + intent extraction
+    llm.ts / llmClient.ts
 
   eval/
-    run.ts           — CLI eval (npm run eval)
-    persist.ts       — batch eval → DB for UI
-    job.ts           — background eval job for /api/eval
-    compliance.ts    — 15 property assertions (npm run compliance)
-
-  components/
-    Nav.tsx, CampaignTimeline.tsx, VoicePlayer.tsx
+    run.ts           — CLI (npm run eval) → data/last-eval.json
+    persist.ts       — batch → SQLite for the UI
+    job.ts           — background job for POST /api/eval
+    compliance.ts    — 15 property assertions
 
   app/
-    page.tsx              — Ledger / scoreboard
-    cases/                — Case registry + case file detail
-    api/eval/             — POST start batch, GET job status
-    api/batch/            — GET batch run summaries
-    api/cases/            — GET cases list + detail
-    api/live/             — POST create Payment Link
-    api/webhooks/razorpay/ — POST ingest + recovery webhooks
-
-data/
-  batch.json   — 168 synthetic cases (subscription, checkout, B2B invoice)
+    page.tsx              — Ledger: Naive ₹ first, then violations
+    cases/                — Registry + case file + vs-rail
+    api/demo/trigger      — POST live-style ingest (mandate_revoked | funds)
+    api/live/             — Payment Link, Order, signature confirm
+    api/webhooks/razorpay/
 ```

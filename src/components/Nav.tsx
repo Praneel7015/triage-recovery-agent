@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 
 const links = [
   { href: "/", label: "Ledger" },
@@ -10,6 +11,8 @@ const links = [
 
 export function Nav() {
   const path = usePathname();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   return (
     <header className="site-header">
@@ -23,15 +26,18 @@ export function Nav() {
         </Link>
 
         <nav className="site-nav" aria-label="Main">
-          {links.map(({ href, label }) => (
+          {links.map(({ href, label }) => {
+            const active = mounted && (path === href || (href !== "/" && path.startsWith(href)));
+            return (
             <Link
               key={href}
               href={href}
-              className={path === href || (href !== "/" && path.startsWith(href)) ? "nav-link active" : "nav-link"}
+              className={active ? "nav-link active" : "nav-link"}
             >
               {label}
             </Link>
-          ))}
+            );
+          })}
         </nav>
 
         <p className="site-tag">Razorpay Buildathon · Track 03</p>

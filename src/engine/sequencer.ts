@@ -208,6 +208,13 @@ export async function runCampaign(c: CaseInput, opts: { holdoutFraction?: number
       finalStopCode = stop.stopCode;
       if (stop.permanent) break;
 
+      if (stop.stopCode === "promise_to_pay_pending" && promise) {
+        const due = new Date(promise);
+        const wait = Math.ceil((due.getTime() - dayToDate(day).getTime()) / 86400_000);
+        day += Math.max(1, wait);
+        continue;
+      }
+
       // Transient block: wait a few days, try the next rung.
       day += 3;
       stepIndex++;

@@ -6,6 +6,7 @@ import { use } from "react";
 import { CampaignTimeline, type CampaignStepRow } from "@/components/CampaignTimeline";
 import { VoicePlayer } from "@/components/VoicePlayer";
 import { RazorpayCheckoutButton } from "@/components/RazorpayCheckoutButton";
+import { VersusRail, type Counterpart } from "@/components/VersusRail";
 import { rupees, labelCause, labelAction, labelStatus } from "@/lib/format";
 
 interface AuditEntry {
@@ -53,10 +54,13 @@ interface CaseDetail {
   stepCount: number;
   confidenceScore: number | null;
   llmCalls: number;
+  llmFallbacks?: number;
   optedOut: boolean;
   disputed: boolean;
   auditTrail: AuditEntry[];
   campaignSteps: CampaignStepRow[];
+  counterpartId: string | null;
+  counterpart: Counterpart | null;
 }
 
 const ACTOR_LABEL: Record<string, string> = {
@@ -104,6 +108,8 @@ export default function CaseFilePage({ params }: { params: Promise<{ id: string 
   }
 
   const voiceScript = c.campaignSteps?.find((s) => s.voiceScript)?.voiceScript;
+  const selfViolations = c.auditTrail.filter((e) => e.event === "compliance_violation").length;
+  const fallbacked = (c.llmFallbacks ?? 0) > 0 || c.auditTrail.some((e) => e.llmFallback);
 
   return (
     <div className="page">
@@ -159,7 +165,14 @@ export default function CaseFilePage({ params }: { params: Promise<{ id: string 
           {c.isNaiveRun && <span className="badge badge-forest">Naive run</span>}
           {c.optedOut && <span className="badge badge-danger">Opted out</span>}
           {c.disputed && <span className="badge badge-warn">Disputed</span>}
+          {fallbacked && <span className="badge badge-warn">LLM fallback</span>}
         </div>
+
+        {fallbacked && (
+          <p className="banner-fallback" style={{ margin: "1rem 0 0", fontSize: "0.85rem", color: "var(--cream)", borderTop: "1px solid var(--border-on-roast)", paddingTop: "1rem", paddingLeft: "0.75rem" }}>
+            Model unavailable. Taxonomy held the cause. Policy still selected the action. Stops still ran. The campaign did not stall.
+          </p>
+        )}
 
         {c.diagnosisNarrative && (
           <p style={{ margin: "1rem 0 0", fontSize: "0.88rem", color: "var(--cream)", borderTop: "1px solid var(--border-on-roast)", paddingTop: "1rem" }}>
@@ -167,6 +180,19 @@ export default function CaseFilePage({ params }: { params: Promise<{ id: string 
           </p>
         )}
       </header>
+
+      {c.counterpart && (
+        <div style={{ marginBottom: "1.25rem" }}>
+          <VersusRail
+            selfIsNaive={c.isNaiveRun}
+            selfAction={c.actionTaken}
+            selfStatus={c.status}
+            selfViolations={selfViolations}
+            cause={c.cause}
+            counterpart={c.counterpart}
+          />
+        </div>
+      )}
 
       <div className="case-split" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.25rem" }}>
         {/* Campaign timeline — signature */}
@@ -186,10 +212,15 @@ export default function CaseFilePage({ params }: { params: Promise<{ id: string 
               </p>
               {c.status === "recovered" ? (
                 <p style={{ fontSize: "0.85rem", color: "var(--ink)", fontWeight: 600 }}>
-                  Case already recovered.
+                  Case already recovered{c.recoveredAmountPaise ? ` · ${rupees(c.recoveredAmountPaise)}` : ""}.
                 </p>
               ) : (
                 <RazorpayCheckoutButton caseId={c.id} onSuccess={reload} />
+              )}
+              {c.razorpayPaymentLinkUrl && c.status !== "recovered" && (
+                <a className="live-link" href={c.razorpayPaymentLinkUrl} target="_blank" rel="noreferrer">
+                  Or pay via Payment Link →
+                </a>
               )}
             </section>
           )}
