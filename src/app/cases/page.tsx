@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { rupees, labelCause, labelAction, labelStatus } from "@/lib/format";
+import { Suspense } from "react";
 
 interface CaseRow {
   id: string;
@@ -18,11 +20,18 @@ interface CaseRow {
   stepCount: number;
   recoveredOnDay: number | null;
   totalCostPaise: number;
+  llmFallbacks?: number;
 }
 
-export default function CasesPage() {
+function CasesBody() {
+  const searchParams = useSearchParams();
+  const initialCause = searchParams.get("cause") ?? "";
+  const initialFallback = searchParams.get("fallback") === "1";
+
   const [cases, setCases] = useState<CaseRow[]>([]);
   const [filter, setFilter] = useState<"triage" | "naive">("triage");
+  const [cause, setCause] = useState(initialCause);
+  const [fallbackOnly, setFallbackOnly] = useState(initialFallback);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -30,14 +39,17 @@ export default function CasesPage() {
   useEffect(() => {
     setLoading(true);
     setLoadError(null);
-    fetch(`/api/cases?strategy=${filter}`)
+    const q = new URLSearchParams({ strategy: filter });
+    if (cause) q.set("cause", cause);
+    if (fallbackOnly) q.set("fallback", "1");
+    fetch(`/api/cases?${q.toString()}`)
       .then((r) => {
         if (!r.ok) throw new Error("Could not load cases");
         return r.json();
       })
       .then((d) => { setCases(Array.isArray(d) ? d : []); setLoading(false); })
       .catch((err) => { setLoadError(err.message ?? "Failed to load"); setLoading(false); });
-  }, [filter]);
+  }, [filter, cause, fallbackOnly]);
 
   const visible = cases.filter(
     (c) =>
@@ -55,7 +67,7 @@ export default function CasesPage() {
           Revenue at risk
         </h1>
         <p className="muted" style={{ margin: 0, fontSize: "0.88rem" }}>
-          Each row is an open case file — diagnosis, campaign steps, and audit trail inside.
+          Each row is a case file. Checkout and B2B labels are dataset mix — policy is cause-conditioned, not segment-conditioned.
         </p>
       </header>
 
@@ -74,6 +86,30 @@ export default function CasesPage() {
             </button>
           ))}
         </div>
+        <div className="filter-tabs" role="tablist" aria-label="Cause">
+          {[
+            { id: "", label: "all causes" },
+            { id: "mandate_revoked", label: "mandate revoked" },
+            { id: "insufficient_funds", label: "empty account" },
+            { id: "bank_outage", label: "outage" },
+          ].map((s) => (
+            <button
+              key={s.id || "all"}
+              type="button"
+              className={`filter-tab${cause === s.id ? " active" : ""}`}
+              onClick={() => setCause(s.id)}
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
+        <button
+          type="button"
+          className={`filter-tab${fallbackOnly ? " active" : ""}`}
+          onClick={() => setFallbackOnly((v) => !v)}
+        >
+          LLM fallback
+        </button>
         <input
           type="search"
           className="search-input"
@@ -95,7 +131,7 @@ export default function CasesPage() {
         ) : visible.length === 0 ? (
           <div className="empty" style={{ padding: "2.5rem" }}>
             <h2>No cases yet</h2>
-            <p>Run a batch eval from the ledger to populate the registry.</p>
+            <p>Run a batch eval from the ledger, or fire a live demo (mandate revoked) from the home page.</p>
             <Link href="/" className="btn btn-primary">Go to ledger</Link>
           </div>
         ) : (
@@ -120,6 +156,7 @@ export default function CasesPage() {
                       <strong>{c.customerName}</strong>
                       {c.isHoldout && <span className="badge badge-warn" style={{ marginLeft: "0.4rem" }}>holdout</span>}
                       {c.isDnd && <span className="badge badge-danger" style={{ marginLeft: "0.4rem" }}>dnd</span>}
+                      {(c.llmFallbacks ?? 0) > 0 && <span className="badge badge-warn" style={{ marginLeft: "0.4rem" }}>fallback</span>}
                     </td>
                     <td><span className="badge badge-forest">{c.segment?.replace(/_/g, " ") ?? "—"}</span></td>
                     <td className="amount">{rupees(c.amountPaise)}</td>
@@ -140,5 +177,13 @@ export default function CasesPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function CasesPage() {
+  return (
+    <Suspense fallback={<div className="page"><p className="dim">Opening registry…</p></div>}>
+      <CasesBody />
+    </Suspense>
   );
 }

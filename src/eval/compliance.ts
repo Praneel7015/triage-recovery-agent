@@ -80,16 +80,18 @@ const PROPERTIES: Property[] = [
     id: "P6",
     statement: "No customer is contacted before a promise-to-pay date they gave.",
     check: (r) => {
-      let promiseDay: number | null = null;
+      let holdUntilDay: number | null = null;
       for (const s of r.steps) {
-        if (promiseDay !== null && !s.blocked && CONTACT_CHANNELS.has(s.channel) && s.day < promiseDay) {
-          return `contacted on day ${s.day} despite a promise covering day ${promiseDay}`;
+        if (holdUntilDay !== null && !s.blocked && CONTACT_CHANNELS.has(s.channel) && s.day < holdUntilDay) {
+          return `contacted on day ${s.day} despite a promise covering day ${holdUntilDay}`;
         }
         if (s.intent?.intent === "promise_to_pay" && s.intent.promiseDate) {
-          const d = new Date(s.intent.promiseDate);
-          if (!isNaN(d.getTime())) {
-            promiseDay = s.day + Math.max(0, Math.round((d.getTime() - Date.now()) / 86400_000) - s.day);
-            promiseDay = Math.max(s.day, Math.round((d.getTime() - Date.now()) / 86400_000));
+          const due = Date.parse(s.intent.promiseDate);
+          if (!isNaN(due)) {
+            const daysFromNow = Math.round((due - Date.now()) / 86400_000);
+            holdUntilDay = Math.max(s.day + 1, daysFromNow);
+          } else {
+            holdUntilDay = s.day + 1;
           }
         }
       }

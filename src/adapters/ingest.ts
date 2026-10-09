@@ -1,10 +1,11 @@
 import { db } from "@/db/client";
-import { cases, auditLog } from "@/db/schema";
+import { cases, auditLog, campaignSteps } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import { classifyCause } from "@/engine/taxonomy";
 import { runAgent } from "@/engine/agent";
 import { createPaymentLink } from "@/adapters/razorpay";
+import { costOfAction, channelForAction } from "@/engine/economics";
 
 interface RazorpayPaymentEntity {
   id?: string;
@@ -95,7 +96,7 @@ export function ingestFailedPayment(
     touchCount: 0,
     isDnd: false,
     hasConsented: true,
-    bankOutageActive: false,
+    bankOutageActive: cause === "bank_outage" || cause === "psp_down",
     segment: entity.invoice_id ? "b2b_invoice" : entity.subscription_id ? "subscription" : "checkout",
     invoiceId: entity.invoice_id ?? null,
     failedAt: entity.created_at ?? now,
@@ -180,34 +181,64 @@ export async function kickLiveCase(caseId: string): Promise<void> {
       }).run();
     }
 
+    db.insert(campaignSteps).values({
+      id: randomUUID(),
+      caseId,
+      day: 0,
+      stepIndex: 0,
+      action: result.action as any,
+      channel: channelForAction(result.action),
+      costPaise: result.blocked ? 0 : costOfAction(result.action),
+      rationale: result.blocked
+        ? result.stopReason ?? "Blocked by a stop rule."
+        : `Live first action. ${result.action === "do_nothing" ? "Silence is the intervention." : "Awaiting payment."}`,
+      blocked: result.blocked,
+      stopCode: (result.stopCode ?? null) as any,
+      stopReason: result.stopReason ?? null,
+      outcome: result.blocked ? "blocked" : "waiting",
+      outcomeReason: result.blocked
+        ? `${result.stopCode}: ${result.stopReason}`
+        : "Single-shot live path — not a 30-day campaign.",
+    }).run();
+
+    db.update(cases).set({ stepCount: 1, updatedAt: now }).where(eq(cases.id, caseId)).run();
+
     const linksActions = new Set([
       "send_one_time_payment_link",
       "send_method_update_link",
     ]);
 
     if (!result.blocked && linksActions.has(result.action) && c.amountPaise >= 100) {
-      const link = await createPaymentLink({
-        caseId: c.id,
-        customerId: c.customerId,
-        customerName: c.customerName,
-        customerEmail: c.customerEmail,
-        customerPhone: c.customerPhone,
-        amountPaise: c.amountPaise,
-        description: result.diagnosisNarrative ?? "Payment recovery",
-        expireAfterSeconds: 7 * 24 * 60 * 60,
-      });
+      try {
+        const link = await createPaymentLink({
+          caseId: c.id,
+          customerId: c.customerId,
+          customerName: c.customerName,
+          customerEmail: c.customerEmail,
+          customerPhone: c.customerPhone,
+          amountPaise: c.amountPaise,
+          description: result.diagnosisNarrative ?? "Payment recovery",
+          expireAfterSeconds: 7 * 24 * 60 * 60,
+        });
 
-      db.update(cases).set({
-        razorpayPaymentLinkId: link.id,
-        razorpayPaymentLinkUrl: link.short_url,
-        updatedAt: now,
-      }).where(eq(cases.id, caseId)).run();
+        db.update(cases).set({
+          razorpayPaymentLinkId: link.id,
+          razorpayPaymentLinkUrl: link.short_url,
+          updatedAt: now,
+        }).where(eq(cases.id, caseId)).run();
 
-      db.insert(auditLog).values({
-        id: randomUUID(), caseId, ts: now,
-        actor: "executor", event: "payment_link_created",
-        detail: `Auto-created Razorpay Payment Link: ${link.short_url}`,
-      }).run();
+        db.insert(auditLog).values({
+          id: randomUUID(), caseId, ts: now,
+          actor: "executor", event: "payment_link_created",
+          detail: `Auto-created Razorpay Payment Link: ${link.short_url}`,
+        }).run();
+      } catch (err: any) {
+        db.insert(auditLog).values({
+          id: randomUUID(), caseId, ts: now,
+          actor: "executor", event: "executor_failure",
+          detail: `Payment Link creation failed: ${err.message}. Checkout.js on the case file still works if keys are set.`,
+        }).run();
+      }
     }
   } catch (err: any) {
     db.insert(auditLog).values({

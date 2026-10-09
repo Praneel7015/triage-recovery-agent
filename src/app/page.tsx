@@ -35,6 +35,7 @@ interface BatchRun {
   avgStepsPerCase: number;
   avgDaysToRecovery: number;
   createdAt: number;
+  sourcedFromCache?: boolean;
 }
 
 function Metric({ label, value, sub, highlight }: { label: string; value: string; sub?: string; highlight?: boolean }) {
@@ -48,7 +49,7 @@ function Metric({ label, value, sub, highlight }: { label: string; value: string
 }
 
 function CompareCol({ title, badge, run }: { title: string; badge: string; run: BatchRun }) {
-  const netBankable = run.amountRecoveredPaise - run.outreachCostPaise;
+  const violations = run.illegalRetries + run.dndViolations + run.ignoredOptOuts + run.outageContacts;
   const holdoutRate = run.holdoutCases ? pct(run.holdoutRecovered, run.holdoutCases) : "—";
   const treatedRate = run.treatedCases ? pct(run.treatedRecovered, run.treatedCases) : "—";
 
@@ -59,16 +60,16 @@ function CompareCol({ title, badge, run }: { title: string; badge: string; run: 
         <span className={`badge ${badge === "Triage" ? "badge-signal" : "badge-forest"}`}>{badge}</span>
       </header>
       <div className="compare-row">
-        <span>Bankable recovered</span>
+        <span>Gross recovered</span>
         <span>{rupees(run.amountRecoveredPaise)}</span>
+      </div>
+      <div className="compare-row">
+        <span>Of which illegal</span>
+        <span>{rupees(run.illegalRecoveredPaise ?? 0)}</span>
       </div>
       <div className="compare-row">
         <span>Outreach spend</span>
         <span>{rupees(run.outreachCostPaise)}</span>
-      </div>
-      <div className="compare-row">
-        <span>Net bankable</span>
-        <span style={{ color: "var(--roast)" }}>{rupees(netBankable)}</span>
       </div>
       <div className="compare-row">
         <span>Treated recovery rate</span>
@@ -88,9 +89,7 @@ function CompareCol({ title, badge, run }: { title: string; badge: string; run: 
       </div>
       <div className="compare-row">
         <span>Rule violations</span>
-        <span>
-          {run.illegalRetries + run.dndViolations + run.ignoredOptOuts + run.outageContacts}
-        </span>
+        <span>{violations}</span>
       </div>
       <div className="compare-row">
         <span>Avg days to recovery</span>
@@ -100,14 +99,18 @@ function CompareCol({ title, badge, run }: { title: string; badge: string; run: 
   );
 }
 
-function DemoTrigger() {
+function DemoTrigger({ scenario, label }: { scenario: "mandate_revoked" | "insufficient_funds"; label: string }) {
   const [status, setStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [caseId, setCaseId] = useState<string | null>(null);
 
   const trigger = async () => {
     setStatus("loading");
     try {
-      const r = await fetch("/api/demo/trigger", { method: "POST" });
+      const r = await fetch("/api/demo/trigger", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ scenario }),
+      });
       const d = await r.json();
       if (!d.ok) throw new Error(d.error);
       setCaseId(d.caseId);
@@ -120,14 +123,14 @@ function DemoTrigger() {
   if (status === "done" && caseId) {
     return (
       <Link href={`/cases/${caseId}`} className="btn btn-ghost" style={{ color: "var(--ink)" }}>
-        → View new case
+        → Open {label.toLowerCase()} case
       </Link>
     );
   }
 
   return (
     <button type="button" className="btn btn-ghost" onClick={trigger} disabled={status === "loading"}>
-      {status === "loading" ? "Simulating…" : status === "error" ? "Retry demo" : "Simulate payment failure"}
+      {status === "loading" ? "Opening case…" : status === "error" ? "Retry" : label}
     </button>
   );
 }
@@ -207,36 +210,39 @@ export default function LedgerPage() {
 
   const triage = runs.find((r) => r.strategy === "triage");
   const naive = runs.find((r) => r.strategy === "naive");
+  const fromCache = Boolean(triage?.sourcedFromCache || naive?.sourcedFromCache);
 
-  const triageNet = triage ? triage.amountRecoveredPaise - triage.outreachCostPaise : 0;
-  const naiveNet = naive ? naive.amountRecoveredPaise - naive.outreachCostPaise : 0;
   const naiveViolations = naive
     ? naive.illegalRetries + naive.dndViolations + naive.ignoredOptOuts + naive.outageContacts
     : 0;
 
   return (
     <div className="page">
-      {/* Hero */}
       <header className="animate-in" style={{ marginBottom: "2.5rem" }}>
-        <p className="eyebrow">Diagnose before you treat</p>
-        <h1 className="display" style={{ fontSize: "clamp(2rem, 5vw, 2.75rem)", margin: "0.5rem 0 1rem", maxWidth: "22ch" }}>
-          Every failed rupee is a case file.
+        <p className="eyebrow">Fiduciary recovery · Track 03</p>
+        <h1 className="display" style={{ fontSize: "clamp(2rem, 5vw, 2.75rem)", margin: "0.5rem 0 1rem", maxWidth: "24ch" }}>
+          Naive recovers more rupees. Triage is the one you can ship.
         </h1>
-        <p className="muted" style={{ maxWidth: "52ch", margin: 0, fontSize: "0.95rem" }}>
-          Triage runs bounded 30-day recovery campaigns: cause-conditioned playbooks,
-          Hinglish reply parsing, holdout-measured lift, and zero tolerance for rule violations.
+        <p className="muted" style={{ maxWidth: "56ch", margin: 0, fontSize: "0.95rem" }}>
+          Same <span className="data">payment.failed</span>, four diseases. Spam dunning wins gross.
+          Dead-mandate retries, DND, and opted-out customers are how a merchant gets deboarded.
+          Triage picks the intervention the failure earned — and refuses the rest.
         </p>
         <div style={{ display: "flex", gap: "0.75rem", marginTop: "1.35rem", flexWrap: "wrap" }}>
           <button type="button" className="btn btn-primary" onClick={runEval} disabled={running}>
-            {running ? "Running batch…" : "Run batch eval"}
+            {running ? "Running batch…" : "Re-run batch eval"}
           </button>
-          {triage && (
-            <Link href="/cases" className="btn btn-ghost">
-              Open case files
-            </Link>
-          )}
-          <DemoTrigger />
+          <Link href="/cases?cause=mandate_revoked" className="btn btn-ghost">
+            Mandate cases
+          </Link>
+          <DemoTrigger scenario="mandate_revoked" label="Live: mandate revoked" />
+          <DemoTrigger scenario="insufficient_funds" label="Live: empty account" />
         </div>
+        {fromCache && (
+          <p className="dim" style={{ margin: "0.85rem 0 0", fontSize: "0.78rem" }}>
+            Showing last eval from disk. Re-run to persist case files into SQLite.
+          </p>
+        )}
         {evalNote && (
           <p className="muted" style={{ margin: "0.85rem 0 0", fontSize: "0.82rem" }}>{evalNote}</p>
         )}
@@ -260,8 +266,8 @@ export default function LedgerPage() {
       {!loading && !triage && (
         <div className="empty panel animate-in-delay-1">
           <div className="empty-icon">₹</div>
-          <h2>No eval run yet</h2>
-          <p>Run the batch to process all cases through Triage and the naive baseline. Results appear here as a merchant-facing ledger.</p>
+          <h2>No eval on disk</h2>
+          <p>Run the batch to process all cases through Triage and Naive. Live demo still works from the buttons above.</p>
           <button type="button" className="btn btn-primary" onClick={runEval} disabled={running}>
             Run batch eval
           </button>
@@ -270,43 +276,46 @@ export default function LedgerPage() {
 
       {triage && naive && (
         <>
-          {/* Thesis banner */}
           <section
             className="panel panel-raised animate-in-delay-1"
             style={{ marginBottom: "1.25rem", borderLeft: "4px solid var(--roast)" }}
           >
-            <div className="metric-grid cols-3">
+            <div className="metric-grid cols-4">
               <Metric
-                label="Triage net bankable"
-                value={rupees(triageNet, { compact: true })}
-                sub={`${pp(triage.absoluteLiftPct)} incremental lift`}
+                label="Naive recovered"
+                value={rupees(naive.amountRecoveredPaise, { compact: true })}
+                sub="Gross · spam everyone"
                 highlight
               />
               <Metric
-                label="Compliance"
-                value="0 violations"
-                sub={`Naive: ${naiveViolations} across batch`}
+                label="Naive violations"
+                value={String(naiveViolations)}
+                sub="DND, opt-out, dead mandate, outage"
               />
               <Metric
-                label="Intent accuracy"
-                value={`${triage.intentAccuracyPct.toFixed(0)}%`}
-                sub="Hinglish reply extraction"
+                label="Triage recovered"
+                value={rupees(triage.amountRecoveredPaise, { compact: true })}
+                sub={`${pp(triage.absoluteLiftPct)} lift vs holdout`}
+              />
+              <Metric
+                label="Triage violations"
+                value="0"
+                sub="Every rupee is bankable"
               />
             </div>
             <p style={{ margin: "1rem 0 0", fontSize: "0.82rem", color: "var(--cream)" }}>
-              Naive dunning recovers more gross rupees ({rupees(naive.amountRecoveredPaise)}) by messaging everyone —
-              but {rupees(naive.illegalRecoveredPaise)} cannot be banked after rule breaks.
-              Triage uses {naive.touchesSent - triage.touchesSent} fewer touches and honours every stop rule.
+              Naive is ahead by {rupees(naive.amountRecoveredPaise - triage.amountRecoveredPaise)} on this batch.
+              Illegal recovery on the violating step is only {rupees(naive.illegalRecoveredPaise ?? 0)} —
+              a later legal link still counts. The 157 rule breaks are the product: Razorpay cannot ship Naive.
+              Triage uses {naive.touchesSent - triage.touchesSent} fewer touches.
             </p>
           </section>
 
-          {/* Side by side */}
           <div className="compare animate-in-delay-2" style={{ marginBottom: "1.25rem" }}>
-            <CompareCol title="Cause-conditioned" badge="Triage" run={triage} />
             <CompareCol title="Retry-and-spam" badge="Naive" run={naive} />
+            <CompareCol title="Cause-conditioned" badge="Triage" run={triage} />
           </div>
 
-          {/* Compliance strip */}
           <section className="panel animate-in-delay-3" style={{ marginBottom: "1.25rem" }}>
             <p className="eyebrow" style={{ marginBottom: "0.85rem" }}>Compliance ledger</p>
             <div className="metric-grid cols-4">
@@ -317,15 +326,27 @@ export default function LedgerPage() {
             </div>
           </section>
 
-          {/* Why Triage wins */}
+          <section className="panel banner-fallback animate-in-delay-3" style={{ marginBottom: "1.25rem" }}>
+            <p className="eyebrow" style={{ marginBottom: "0.65rem" }}>When the model is down</p>
+            <p style={{ margin: 0, fontSize: "0.88rem", color: "var(--cream)" }}>
+              {triage.llmFallbacks} LLM fallbacks on this batch. Taxonomy holds, policy still picks the action,
+              stop rules still veto. The campaign does not 500.{" "}
+              {triage.policyOverrides > 0 && `${triage.policyOverrides} times policy overrode a hesitant model. `}
+              Intent extraction {triage.intentAccuracyPct.toFixed(0)}% vs ground truth — the model reads Hinglish; it never moves money.
+            </p>
+            <Link href="/cases?fallback=1" className="btn-open" style={{ marginTop: "0.75rem", display: "inline-block" }}>
+              Open taxonomy-only cases →
+            </Link>
+          </section>
+
           <section className="panel animate-in-delay-3" style={{ marginBottom: "1.25rem" }}>
-            <p className="eyebrow" style={{ marginBottom: "1rem" }}>Why Triage wins on what matters</p>
+            <p className="eyebrow" style={{ marginBottom: "1rem" }}>What a listed company can ship</p>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "1rem" }}>
               <div style={{ borderLeft: "3px solid var(--ink)", paddingLeft: "0.85rem" }}>
                 <p style={{ margin: 0, fontWeight: 700, fontSize: "1.1rem", color: "var(--ink)" }}>0 violations</p>
                 <p className="muted" style={{ margin: "0.25rem 0 0", fontSize: "0.8rem" }}>
-                  Naive breaks {naive.illegalRetries + naive.dndViolations + naive.ignoredOptOuts + naive.outageContacts} rules —
-                  DND, opt-outs, dead mandates. Revenue from those steps cannot be booked. Triage never violates a single rule.
+                  Naive breaks {naiveViolations} rules. TRAI DND, NPCI mandate-retry abuse, contacting someone who said STOP.
+                  Triage never does.
                 </p>
               </div>
               <div style={{ borderLeft: "3px solid var(--ink)", paddingLeft: "0.85rem" }}>
@@ -333,8 +354,8 @@ export default function LedgerPage() {
                   {naive.touchesSent - triage.touchesSent} fewer touches
                 </p>
                 <p className="muted" style={{ margin: "0.25rem 0 0", fontSize: "0.8rem" }}>
-                  Naive sends {naive.touchesSent} messages. Triage sends {triage.touchesSent}. Fewer touches means
-                  lower churn risk and lower cost — without sacrificing recovery rate.
+                  Naive sends {naive.touchesSent}. Triage sends {triage.touchesSent}. Recovery rate is lower —
+                  that is the honest tradeoff, not a hidden win.
                 </p>
               </div>
               <div style={{ borderLeft: "3px solid var(--ink)", paddingLeft: "0.85rem" }}>
@@ -342,17 +363,16 @@ export default function LedgerPage() {
                   {triage.intentAccuracyPct.toFixed(0)}% intent accuracy
                 </p>
                 <p className="muted" style={{ margin: "0.25rem 0 0", fontSize: "0.8rem" }}>
-                  The LLM reads Hinglish replies and extracts intent — promise to pay, opt-out, dispute, already paid.
-                  It never selects an action. Policy does. The model earns its place by reading what humans write.
+                  The LLM reads Hinglish replies. Policy selects the action. Stops veto it. Three modules, three jobs.
                 </p>
               </div>
             </div>
           </section>
 
-          {/* Economics footnote */}
           <p className="dim" style={{ fontSize: "0.75rem", textAlign: "center" }}>
             {triage.totalCases} cases · holdout {triage.holdoutCases} never contacted ·
-            net delta {rupees(triageNet - naiveNet)} vs naive on bankable basis
+            Naive ahead {rupees(naive.amountRecoveredPaise - triage.amountRecoveredPaise)} on gross ·
+            checkout and B2B rows are dataset mix, not separate product lanes
           </p>
         </>
       )}
