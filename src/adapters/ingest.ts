@@ -127,6 +127,10 @@ export function ingestFailedPayment(
 export async function kickLiveCase(caseId: string): Promise<void> {
   const c = db.select().from(cases).where(eq(cases.id, caseId)).get();
   if (!c) return;
+  // Webhooks are at-least-once, and payment.failed + subscription.pending can
+  // both arrive for one payment. Only the first kick may act, or the customer
+  // gets a second Payment Link.
+  if (c.actionTaken || c.stepCount > 0) return;
 
   const input = {
     id: c.id,

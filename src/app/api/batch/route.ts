@@ -5,12 +5,12 @@ import { desc, isNotNull } from "drizzle-orm";
 import { migrate } from "@/db/migrate";
 import { lastEvalAsLedgerRuns, overlayIllegalFromCache } from "@/lib/evalCache";
 
-migrate();
-
 export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
+    // Inside the try, so a migration error still reaches the cache fallback.
+    migrate();
     const runs = db.select().from(batchRuns)
       .where(isNotNull(batchRuns.completedAt))
       .orderBy(desc(batchRuns.createdAt))

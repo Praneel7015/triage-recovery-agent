@@ -144,15 +144,20 @@ export function lastEvalAsLedgerRuns(): LedgerRun[] | null {
  * Overlay only that field from last-eval so the ledger does not contradict the pitch.
  * Gross recovered is never rewritten.
  */
-export function overlayIllegalFromCache<T extends { strategy: string; illegalRecoveredPaise?: number | null }>(
-  runs: T[],
-): T[] {
+export function overlayIllegalFromCache<T extends {
+  strategy: string;
+  illegalRecoveredPaise?: number | null;
+  totalCases: number;
+  amountRecoveredPaise: number;
+}>(runs: T[]): T[] {
   const file = readLastEval();
   const cachedIllegal = file?.naive?.illegalRecoveredPaise ?? 0;
-  if (!cachedIllegal) return runs;
+  if (!file || !cachedIllegal) return runs;
   return runs.map((r) => {
     if (r.strategy !== "naive") return r;
     if ((r.illegalRecoveredPaise ?? 0) !== 0) return r;
+    // Only the run this snapshot describes; an older run keeps its own numbers.
+    if (r.totalCases !== file.cases || r.amountRecoveredPaise !== file.naive.grossRecoveredPaise) return r;
     return { ...r, illegalRecoveredPaise: cachedIllegal };
   });
 }

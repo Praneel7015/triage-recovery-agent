@@ -10,11 +10,12 @@
     "grossRecoveredPaise": 46032900,
     "compliantRecoveredPaise": 46032900,
     "illegalRecoveredPaise": 0,
-    "outreachCostPaise": 84025,
-    "netRecoveredPaise": 45948875,
-    "netBankablePaise": 45948875,
-    "roi": 547.85,
-    "costPerRupeeRecovered": 0.00183,
+    "taintedCases": 0,
+    "outreachCostPaise": 79560,
+    "netRecoveredPaise": 45953340,
+    "netBankablePaise": 45953340,
+    "roi": 578.59,
+    "costPerRupeeRecovered": 0.00173,
     "touches": 146,
     "absoluteLiftPct": 29.78,
     "relativeLiftPct": 134,
@@ -24,9 +25,9 @@
       "ignoredOptOuts": 0,
       "outageContacts": 0
     },
-    "avgStepsPerCase": 1.97,
+    "avgStepsPerCase": 1.98,
     "avgDaysToRecovery": 2.9,
-    "llmFallbacks": 91,
+    "llmFallbacks": 90,
     "policyOverrides": 0,
     "intentAccuracyPct": 97.4
   },
@@ -40,6 +41,7 @@
     "grossRecoveredPaise": 73161100,
     "compliantRecoveredPaise": 72571700,
     "illegalRecoveredPaise": 589400,
+    "taintedCases": 52,
     "outreachCostPaise": 30175,
     "netRecoveredPaise": 73130925,
     "netBankablePaise": 72541525,
@@ -57,5 +59,5 @@
     "avgStepsPerCase": 3.84,
     "avgDaysToRecovery": 4.71
   },
-  "runAt": "2026-09-01T13:27:04.445Z"
+  "runAt": "2026-11-02T20:31:33.190Z"
 }

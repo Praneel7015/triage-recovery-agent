@@ -306,7 +306,7 @@ export default function LedgerPage() {
             <p style={{ margin: "1rem 0 0", fontSize: "0.82rem", color: "var(--cream)" }}>
               Naive is ahead by {rupees(naive.amountRecoveredPaise - triage.amountRecoveredPaise)} on this batch.
               Illegal recovery on the violating step is only {rupees(naive.illegalRecoveredPaise ?? 0)} —
-              a later legal link still counts. The 157 rule breaks are the product: Razorpay cannot ship Naive.
+              a later legal link still counts. The {naiveViolations} rule breaks are the product: Razorpay cannot ship Naive.
               Triage uses {naive.touchesSent - triage.touchesSent} fewer touches.
             </p>
           </section>
