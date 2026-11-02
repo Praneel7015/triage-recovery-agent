@@ -10,6 +10,7 @@
     "eval": "tsx src/eval/run.ts",
     "compliance": "tsx src/eval/compliance.ts",
     "test": "node --import tsx --test \"test/**/*.test.ts\"",
+    "test:coverage": "node --import tsx --enable-source-maps --test --experimental-test-coverage --test-coverage-include=\"src/**\" --test-reporter=spec --test-reporter-destination=stdout --test-reporter=lcov --test-reporter-destination=lcov.info \"test/**/*.test.ts\"",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio"
   },

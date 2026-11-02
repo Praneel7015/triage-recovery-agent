@@ -1,0 +1,12 @@
+# Default gitleaks rules, plus an allowlist for the placeholder values in
+# .env.example (rzp_test_XXXX..., XXXX..., sk-...).
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Placeholder values in .env.example"
+regexes = [
+  '''rzp_test_X{8,}''',
+  '''X{16,}''',
+  '''sk-\.\.\.''',
+]
