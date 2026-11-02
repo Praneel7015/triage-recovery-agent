@@ -25,7 +25,7 @@ Two paths can mark a case `recovered` (and write a `payment_received` audit row)
 - `GET /api/webhooks/razorpay` checks the Payment Link signature, then marks the case named by the **unsigned** `case_id` query param. One genuine paid callback, replayed with a different `case_id`, closes any case.
 - `POST /api/live/confirm` checks the Checkout signature over `order_id|payment_id`, but never checks that the order belongs to `caseId`. One genuine Checkout payment closes any case.
 
-The audit trail is the core of the product, so this comes first. The fix: resolve the case only from signed data (link id / reference id, or the order's `notes.case_id`) and add a test harness with regression tests.
+The audit trail is the core of the product, so this comes first. The fix: never use a request-supplied `caseId` as the payment-to-case binding. For Payment Links, resolve the case from the signed link id / reference id. For Checkout, the HMAC covers only `order_id|payment_id`, so fetch that order from Razorpay on the server and require its `notes.case_id` and amount to match. Add a test harness with regression tests. (Done in PR #3.)
 
 ### 2. Get lint green and add the CI/CD stack (M)
 49 lint errors mean new bugs hide in the noise, and nothing checks a PR before merge. The repo also handles Razorpay keys, so secret scanning matters. The plan:
