@@ -27,8 +27,15 @@ Two paths can mark a case `recovered` (and write a `payment_received` audit row)
 
 The audit trail is the core of the product, so this comes first. The fix: resolve the case only from signed data (link id / reference id, or the order's `notes.case_id`) and add a test harness with regression tests.
 
-### 2. Get lint green and add CI (S)
-49 lint errors means `next lint`-gated deploys fail and new bugs hide in the noise. Type the Razorpay SDK responses and the Drizzle enum casts. Replace the `setState`-in-effect patterns. Then add a GitHub Actions workflow that runs lint, `tsc`, tests, `compliance` and a keyless `eval`.
+### 2. Get lint green and add the CI/CD stack (M)
+49 lint errors mean new bugs hide in the noise, and nothing checks a PR before merge. The repo also handles Razorpay keys, so secret scanning matters. The plan:
+- Make eslint pass: type the Drizzle enum columns and the Razorpay SDK calls, and replace the `setState`-in-effect patterns.
+- `ci.yml`: lint, `tsc`, tests with coverage uploaded to Codecov, `compliance`, keyless `eval` and build, with no real keys. Plus a gitleaks secret-scan job over full history.
+- CodeQL, OpenSSF Scorecard, Release Please (node), and grouped weekly Dependabot for npm and actions.
+- CodeRabbit with path instructions: `policy.ts` is the only place an action is selected, and compliance rules are hard constraints.
+- Pin every action to a commit SHA. Add a PR template and README badges.
+
+Settings only Praneel can change: the `CODECOV_TOKEN` secret, letting Actions create PRs (Release Please needs it), code scanning, and branch protection on `main`.
 
 ### 3. Re-baseline the published numbers (XS, needs Praneel's decision)
 The resume and pitch quote **+32-pt lift** and **64% fewer messages**. Those came from the 23 Aug eval (82/150 recovered, 32.4 pp). The code on PR #1 gives **29.8 pp** and **146 vs 426 touches (66% fewer)**, both with and without an LLM key. The committed `data/last-eval.json` (1 Sep) already shows 29.8 pp. Either re-run with the tested Groq config and commit the result, or update the quoted figures. Don't tune the simulator to recover the old number.
