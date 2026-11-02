@@ -71,7 +71,7 @@ export async function POST(request: Request) {
     }).run();
 
     return NextResponse.json({ ok: true, paymentLink: link });
-  } catch (err: any) {
+  } catch (err) {
     // Graceful executor failure — log and escalate
     if (caseId) {
       db.insert(auditLog).values({
@@ -80,9 +80,9 @@ export async function POST(request: Request) {
         ts: Math.floor(Date.now() / 1000),
         actor: "executor",
         event: "executor_failure",
-        detail: `Payment Link creation failed: ${err.message}. Escalating to human.`,
+        detail: `Payment Link creation failed: ${(err as Error).message}. Escalating to human.`,
       }).run();
     }
-    return NextResponse.json({ ok: false, error: err.message, escalated: true }, { status: 502 });
+    return NextResponse.json({ ok: false, error: (err as Error).message, escalated: true }, { status: 502 });
   }
 }

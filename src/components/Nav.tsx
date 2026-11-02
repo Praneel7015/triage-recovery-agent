@@ -2,17 +2,19 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 
 const links = [
   { href: "/", label: "Ledger" },
   { href: "/cases", label: "Case files" },
 ];
 
+const noopSubscribe = () => () => {};
+
 export function Nav() {
   const path = usePathname();
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+  // false during SSR and hydration, true afterwards — without a setState in an effect.
+  const mounted = useSyncExternalStore(noopSubscribe, () => true, () => false);
 
   return (
     <header className="site-header">

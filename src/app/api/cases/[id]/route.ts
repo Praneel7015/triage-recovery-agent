@@ -60,7 +60,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       counterpartId,
       counterpart,
     });
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+  } catch (err) {
+    return NextResponse.json({ error: (err as Error).message }, { status: 500 });
   }
 }

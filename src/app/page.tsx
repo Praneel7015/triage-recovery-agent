@@ -151,8 +151,8 @@ export default function LedgerPage() {
       const r = await fetch("/api/batch");
       if (!r.ok) throw new Error("Could not load batch runs");
       setRuns(await r.json());
-    } catch (err: any) {
-      setLoadError(err.message ?? "Failed to load ledger");
+    } catch (err) {
+      setLoadError((err as Error).message ?? "Failed to load ledger");
     } finally {
       setLoading(false);
     }
@@ -180,8 +180,8 @@ export default function LedgerPage() {
       await pollEval();
       await load();
       setEvalNote(null);
-    } catch (err: any) {
-      setEvalError(err.message ?? "Batch eval failed");
+    } catch (err) {
+      setEvalError((err as Error).message ?? "Batch eval failed");
       setEvalNote(null);
     } finally {
       setRunning(false);
@@ -189,7 +189,16 @@ export default function LedgerPage() {
   };
 
   useEffect(() => {
-    load();
+    // Initial load as a promise chain: loading already starts true, and state is
+    // only set once the fetch settles.
+    fetch("/api/batch")
+      .then((r) => {
+        if (!r.ok) throw new Error("Could not load batch runs");
+        return r.json();
+      })
+      .then((d) => setRuns(d))
+      .catch((err) => setLoadError(err.message ?? "Failed to load ledger"))
+      .finally(() => setLoading(false));
     void fetch("/api/eval")
       .then((r) => r.json())
       .then(async (status) => {
@@ -199,8 +208,8 @@ export default function LedgerPage() {
         try {
           await pollEval();
           await load();
-        } catch (err: any) {
-          setEvalError(err.message ?? "Batch eval failed");
+        } catch (err) {
+          setEvalError((err as Error).message ?? "Batch eval failed");
         } finally {
           setRunning(false);
           setEvalNote(null);

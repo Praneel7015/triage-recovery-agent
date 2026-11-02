@@ -71,12 +71,12 @@ export async function createPaymentLink(
     // case_id query so localhost recover works without a public webhook.
     callback_url: `${process.env.APP_BASE_URL ?? "http://localhost:3000"}/api/webhooks/razorpay?case_id=${encodeURIComponent(params.caseId)}`,
     callback_method: "get",
-  } as any);
+  });
 
   return {
-    id: (link as any).id,
-    short_url: (link as any).short_url,
-    status: (link as any).status,
+    id: link.id,
+    short_url: link.short_url,
+    status: link.status,
   };
 }
 

@@ -40,7 +40,7 @@ export async function POST(request: Request) {
 
   try {
     const rz = new Razorpay({ key_id: keyId, key_secret: keySecret });
-    const order = await (rz.orders as any).create({
+    const order = await rz.orders.create({
       amount: c.amountPaise,
       currency: c.currency ?? "INR",
       receipt: c.id.slice(0, 40),
@@ -63,7 +63,7 @@ export async function POST(request: Request) {
       description: c.diagnosisNarrative ?? "Payment recovery",
       caseId: c.id,
     });
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 502 });
+  } catch (err) {
+    return NextResponse.json({ error: (err as Error).message }, { status: 502 });
   }
 }
