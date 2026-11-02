@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { markCaseRecovered } from "@/lib/markRecovered";
-import { verifyCheckoutSignature } from "@/adapters/razorpay";
+import { confirmCheckoutPayment } from "@/lib/confirmCheckout";
 import { migrate } from "@/db/migrate";
 
 migrate();
@@ -8,7 +7,8 @@ migrate();
 /**
  * POST /api/live/confirm
  * Body: { caseId, razorpay_order_id, razorpay_payment_id, razorpay_signature }
- * Verifies the Razorpay payment signature and marks the case recovered.
+ * Verifies the Razorpay payment signature, checks the order was created for
+ * this case, and marks the case recovered.
  */
 export async function POST(request: Request) {
   let body: unknown;
@@ -29,18 +29,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Razorpay key secret not configured" }, { status: 500 });
   }
 
-  if (!verifyCheckoutSignature(razorpay_order_id, razorpay_payment_id, razorpay_signature)) {
-    return NextResponse.json({ error: "Payment signature invalid" }, { status: 400 });
-  }
-
-  const result = markCaseRecovered({
+  const result = await confirmCheckoutPayment({
     caseId,
+    orderId: razorpay_order_id,
     paymentId: razorpay_payment_id,
-    detail: `Inline checkout: payment ${razorpay_payment_id} verified. Case marked recovered.`,
+    signature: razorpay_signature,
   });
 
   if (!result.ok) {
-    return NextResponse.json({ error: "Case not found" }, { status: 404 });
+    return NextResponse.json({ error: result.error }, { status: result.status });
   }
 
   return NextResponse.json({ ok: true, alreadyRecovered: result.alreadyRecovered });
