@@ -1,5 +1,5 @@
 import { classifyWithConfidence, needsInterpretation, type Classification } from "./taxonomy";
-import { selectStep, selectAction } from "./policy";
+import { selectAction } from "./policy";
 import { checkStops } from "./stops";
 import type { FailureCause, RecoveryAction, StopCode } from "@/db/schema";
 

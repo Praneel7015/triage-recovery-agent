@@ -44,7 +44,7 @@ function salaryWindowDelay(hint?: string | null): number {
  * comes out of here.
  */
 export function selectStep(input: PolicyInput): PolicyDecision {
-  const { cause, subscriptionState, amountPaise, salaryWindowHint } = input;
+  const { cause, amountPaise, salaryWindowHint } = input;
   const step = input.stepIndex ?? 0;
   const highValue = amountPaise >= HIGH_VALUE_PAISE;
   const veryHigh  = amountPaise >= VERY_HIGH_PAISE;

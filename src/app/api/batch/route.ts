@@ -25,9 +25,9 @@ export async function GET() {
     if (cached) return NextResponse.json(cached);
 
     return NextResponse.json([]);
-  } catch (err: any) {
+  } catch (err) {
     const cached = lastEvalAsLedgerRuns();
     if (cached) return NextResponse.json(cached);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json({ error: (err as Error).message }, { status: 500 });
   }
 }

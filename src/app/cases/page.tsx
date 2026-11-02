@@ -33,23 +33,26 @@ function CasesBody() {
   const [cause, setCause] = useState(initialCause);
   const [fallbackOnly, setFallbackOnly] = useState(initialFallback);
   const [search, setSearch] = useState("");
-  const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
+  const q = new URLSearchParams({ strategy: filter });
+  if (cause) q.set("cause", cause);
+  if (fallbackOnly) q.set("fallback", "1");
+  const queryKey = q.toString();
+  // Loading is derived from which query last finished, so the effect only sets
+  // state once the fetch settles.
+  const [loadedKey, setLoadedKey] = useState<string | null>(null);
+  const loading = loadedKey !== queryKey;
+
   useEffect(() => {
-    setLoading(true);
-    setLoadError(null);
-    const q = new URLSearchParams({ strategy: filter });
-    if (cause) q.set("cause", cause);
-    if (fallbackOnly) q.set("fallback", "1");
-    fetch(`/api/cases?${q.toString()}`)
+    fetch(`/api/cases?${queryKey}`)
       .then((r) => {
         if (!r.ok) throw new Error("Could not load cases");
         return r.json();
       })
-      .then((d) => { setCases(Array.isArray(d) ? d : []); setLoading(false); })
-      .catch((err) => { setLoadError(err.message ?? "Failed to load"); setLoading(false); });
-  }, [filter, cause, fallbackOnly]);
+      .then((d) => { setCases(Array.isArray(d) ? d : []); setLoadError(null); setLoadedKey(queryKey); })
+      .catch((err) => { setLoadError(err.message ?? "Failed to load"); setLoadedKey(queryKey); });
+  }, [queryKey]);
 
   const visible = cases.filter(
     (c) =>
@@ -124,10 +127,10 @@ function CasesBody() {
       </div>
 
       <div className="panel" style={{ padding: 0, overflow: "hidden" }}>
-        {loadError ? (
-          <p className="dim" style={{ padding: "2rem" }}>{loadError}</p>
-        ) : loading ? (
+        {loading ? (
           <p className="dim" style={{ padding: "2rem" }}>Loading case files…</p>
+        ) : loadError ? (
+          <p className="dim" style={{ padding: "2rem" }}>{loadError}</p>
         ) : visible.length === 0 ? (
           <div className="empty" style={{ padding: "2.5rem" }}>
             <h2>No cases yet</h2>

@@ -16,7 +16,7 @@ export async function POST() {
       ...getEvalStatus(),
       message: "Batch eval started. This takes ~10 minutes for 168 cases with LLM enabled.",
     });
-  } catch (err: any) {
-    return NextResponse.json({ ok: false, error: err.message }, { status: 500 });
+  } catch (err) {
+    return NextResponse.json({ ok: false, error: (err as Error).message }, { status: 500 });
   }
 }

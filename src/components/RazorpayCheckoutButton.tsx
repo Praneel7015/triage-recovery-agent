@@ -122,16 +122,16 @@ export function RazorpayCheckoutButton({ caseId, onSuccess }: Props) {
             if (!result.ok) throw new Error(result.error ?? "Confirmation failed");
             setStatus("success");
             onSuccess();
-          } catch (e: any) {
-            setError(e.message ?? "Payment confirmed by Razorpay but our server could not verify it.");
+          } catch (e) {
+            setError((e as Error).message ?? "Payment confirmed by Razorpay but our server could not verify it.");
             setStatus("error");
           }
         },
       });
 
       rzp.open();
-    } catch (e: any) {
-      setError(e.message ?? "Checkout failed. Use the Payment Link below.");
+    } catch (e) {
+      setError((e as Error).message ?? "Checkout failed. Use the Payment Link below.");
       setStatus("error");
     }
   }, [caseId, onSuccess]);

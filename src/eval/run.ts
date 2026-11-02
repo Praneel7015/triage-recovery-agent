@@ -3,7 +3,7 @@ import { readFileSync, writeFileSync } from "fs";
 import { runCampaign, type CampaignResult } from "@/engine/sequencer";
 import { runNaiveCampaign, type NaiveResult } from "@/engine/naive";
 import { report, formatRupees, type EconomicsReport } from "@/engine/economics";
-import { computeLift, verdictFor, naturalRecoveryRate, type LiftReport } from "@/engine/holdout";
+import { computeLift, verdictFor, type LiftReport } from "@/engine/holdout";
 import type { CaseInput } from "@/engine/agent";
 import type { FailureCause } from "@/db/schema";
 
@@ -56,7 +56,7 @@ async function main() {
   printMoney(triage, naive);
   printLift(triage, naive);
   printCompliance(triage, naive);
-  printCauseVerdicts(triageRuns, batch);
+  printCauseVerdicts(triageRuns);
   printSegments(triageRuns, batch);
   printAI(triageRuns);
 
@@ -244,7 +244,7 @@ function printCompliance(t: ArmSummary, n: ArmSummary) {
   console.log(`\n  → Triage: 0 violations. Naive: ${totalN} violations across the batch.`);
 }
 
-function printCauseVerdicts(runs: CampaignResult[], batch: CaseInput[]) {
+function printCauseVerdicts(runs: CampaignResult[]) {
   header("WHERE OUTREACH SPEND IS JUSTIFIED — per-cause lift");
 
   const byCause = new Map<FailureCause, { t: CampaignResult[]; h: CampaignResult[] }>();
