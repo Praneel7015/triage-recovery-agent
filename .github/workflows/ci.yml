@@ -1,0 +1,94 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # No real keys in CI. The LLM adapter falls back to taxonomy-only diagnosis,
+  # the eval uses the deterministic simulator, and the Razorpay adapters are
+  # exercised in tests with test-only secrets. Explicitly blank so nothing
+  # picks up a key from anywhere else.
+  LLM_API_KEY: ""
+  RAZORPAY_KEY_ID: ""
+  RAZORPAY_KEY_SECRET: ""
+  RAZORPAY_WEBHOOK_SECRET: ""
+  DATABASE_URL: ./ci.db
+  NEXT_TELEMETRY_DISABLED: "1"
+
+jobs:
+  check:
+    name: Lint, typecheck, test, compliance, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+
+      # better-sqlite3 ships prebuilt binaries in its tarball; skipping install
+      # scripts avoids an unnecessary node-gyp rebuild.
+      - name: Install
+        run: npm ci --ignore-scripts
+
+      - name: Check native SQLite binding
+        run: node -e "new (require('better-sqlite3'))(':memory:')"
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Tests with coverage
+        run: npm run test:coverage
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./lcov.info
+          fail_ci_if_error: false
+
+      - name: Compliance properties
+        run: npm run compliance
+
+      - name: Eval (simulator, no LLM key)
+        run: npm run eval
+
+      - name: Live checks that need keys
+        run: |
+          echo "::notice title=Skipped::LLM-assisted eval and Razorpay test-mode payment flows need real keys, which CI does not have by design. Run them locally with .env (Razorpay test mode only)."
+
+      - name: Build
+        run: npm run build
+
+  secrets:
+    name: Secret scan (gitleaks)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_CONFIG: .gitleaks.toml
+          # PR comments would need pull-requests: write; the job summary is enough.
+          GITLEAKS_ENABLE_COMMENTS: "false"
