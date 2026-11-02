@@ -45,13 +45,21 @@ function CasesBody() {
   const loading = loadedKey !== queryKey;
 
   useEffect(() => {
-    fetch(`/api/cases?${queryKey}`)
+    // Abort the previous request when the filters change, so a slow, stale
+    // response can never overwrite the current one.
+    const controller = new AbortController();
+    fetch(`/api/cases?${queryKey}`, { signal: controller.signal })
       .then((r) => {
         if (!r.ok) throw new Error("Could not load cases");
         return r.json();
       })
       .then((d) => { setCases(Array.isArray(d) ? d : []); setLoadError(null); setLoadedKey(queryKey); })
-      .catch((err) => { setLoadError(err.message ?? "Failed to load"); setLoadedKey(queryKey); });
+      .catch((err) => {
+        if (controller.signal.aborted) return;
+        setLoadError(err.message ?? "Failed to load");
+        setLoadedKey(queryKey);
+      });
+    return () => controller.abort();
   }, [queryKey]);
 
   const visible = cases.filter(
