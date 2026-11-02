@@ -9,6 +9,7 @@
     "lint": "eslint",
     "eval": "tsx src/eval/run.ts",
     "compliance": "tsx src/eval/compliance.ts",
+    "test": "node --import tsx --test \"test/**/*.test.ts\"",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio"
   },
