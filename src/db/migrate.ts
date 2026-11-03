@@ -143,6 +143,7 @@ export function migrate() {
     "ignored_opt_outs INTEGER NOT NULL DEFAULT 0",
     "outage_contacts INTEGER NOT NULL DEFAULT 0",
     "illegal_recovered_paise INTEGER NOT NULL DEFAULT 0",
+    "illegal_tracked INTEGER NOT NULL DEFAULT 0",
     "replies_received INTEGER NOT NULL DEFAULT 0",
     "intent_extractions INTEGER NOT NULL DEFAULT 0",
     "intent_accuracy_pct REAL NOT NULL DEFAULT 0",

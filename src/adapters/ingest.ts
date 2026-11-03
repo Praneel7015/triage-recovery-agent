@@ -1,6 +1,6 @@
 import { db } from "@/db/client";
 import { cases, auditLog, campaignSteps } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { and, eq, isNull, lt, or } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import { classifyCause } from "@/engine/taxonomy";
 import { runAgent } from "@/engine/agent";
@@ -118,6 +118,9 @@ export function ingestFailedPayment(
   return caseId;
 }
 
+/** Longer than a full agent run (two 12s LLM attempts plus queueing). */
+const CLAIM_LEASE_SECONDS = 5 * 60;
+
 /**
  * Runs the agent on a freshly ingested live case: diagnoses the failure, selects
  * the first action, updates the case record, and creates a Razorpay Payment Link
@@ -127,6 +130,26 @@ export function ingestFailedPayment(
 export async function kickLiveCase(caseId: string): Promise<void> {
   const c = db.select().from(cases).where(eq(cases.id, caseId)).get();
   if (!c) return;
+  // Webhooks are at-least-once, and payment.failed + subscription.pending can
+  // both arrive for one payment. Only the first kick may act, or the customer
+  // gets a second Payment Link. Claim the case with a conditional write before
+  // the first await, so a concurrent kick cannot pass the same check. A claim
+  // that recorded nothing within CLAIM_LEASE_SECONDS (the process died mid-run)
+  // can be taken again by a retried webhook.
+  const claimAt = Math.floor(Date.now() / 1000);
+  const claimed = db.update(cases)
+    .set({ status: "in_progress", updatedAt: claimAt })
+    .where(and(
+      eq(cases.id, caseId),
+      isNull(cases.actionTaken),
+      eq(cases.stepCount, 0),
+      or(
+        eq(cases.status, "open"),
+        and(eq(cases.status, "in_progress"), lt(cases.updatedAt, claimAt - CLAIM_LEASE_SECONDS)),
+      ),
+    ))
+    .run();
+  if (claimed.changes === 0) return;
 
   const input = {
     id: c.id,
@@ -158,7 +181,10 @@ export async function kickLiveCase(caseId: string): Promise<void> {
   try {
     const result = await runAgent(input);
 
-    db.update(cases).set({
+    // Fence: claimAt is this kick's claim token. If the lease expired and another
+    // kick reclaimed the case (or already recorded an action), this write changes
+    // nothing and this kick stops before any step or Payment Link.
+    const recorded = db.update(cases).set({
       cause: result.cause as any,
       diagnosisNarrative: result.diagnosisNarrative,
       actionTaken: result.action as any,
@@ -169,7 +195,13 @@ export async function kickLiveCase(caseId: string): Promise<void> {
       llmFallbacks: result.llmFallback ? 1 : 0,
       policyOverrides: result.policyOverride ? 1 : 0,
       updatedAt: now,
-    }).where(eq(cases.id, caseId)).run();
+    }).where(and(
+      eq(cases.id, caseId),
+      eq(cases.status, "in_progress"),
+      eq(cases.updatedAt, claimAt),
+      isNull(cases.actionTaken),
+    )).run();
+    if (recorded.changes === 0) return;
 
     for (const e of result.auditTrail) {
       db.insert(auditLog).values({
@@ -246,5 +278,9 @@ export async function kickLiveCase(caseId: string): Promise<void> {
       actor: "executor", event: "kick_failed",
       detail: `Auto-campaign failed: ${err.message}`,
     }).run();
+    // Release the claim if nothing was recorded, so a later kick can retry.
+    db.update(cases).set({ status: "open", updatedAt: now })
+      .where(and(eq(cases.id, caseId), eq(cases.status, "in_progress"), eq(cases.updatedAt, claimAt), isNull(cases.actionTaken), eq(cases.stepCount, 0)))
+      .run();
   }
 }

@@ -124,6 +124,7 @@ export async function runCampaign(c: CaseInput, opts: { holdoutFraction?: number
   // ── Treated: walk the ladder ──────────────────────────────────────────────
   const steps: CampaignStep[] = [];
   let day        = 0;
+  let resumeAfterPromise = false;
   let stepIndex  = 0;
   let spent      = 0;
   let touches    = c.touchCount;
@@ -156,7 +157,10 @@ export async function runCampaign(c: CaseInput, opts: { holdoutFraction?: number
       salaryWindowHint: c.salaryWindowHint,
     });
 
-    day += decision.delayDays;
+    // After waiting out a promise-to-pay date, resume the same rung without
+    // charging its delay a second time.
+    if (resumeAfterPromise) resumeAfterPromise = false;
+    else day += decision.delayDays;
     if (day > MAX_CAMPAIGN_DAYS) {
       audit.push({ actor: "stop_rule", event: "campaign_expired", day,
         detail: `Next step would fall on day ${day}, past the ${MAX_CAMPAIGN_DAYS}-day bound. Campaign closes.` });
@@ -212,6 +216,9 @@ export async function runCampaign(c: CaseInput, opts: { holdoutFraction?: number
         const due = new Date(promise);
         const wait = Math.ceil((due.getTime() - dayToDate(day).getTime()) / 86400_000);
         day += Math.max(1, wait);
+        // The wait is over; don't let it decide the final outcome.
+        finalStopCode = undefined;
+        resumeAfterPromise = true;
         continue;
       }
 

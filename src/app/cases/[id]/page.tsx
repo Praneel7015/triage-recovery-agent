@@ -170,7 +170,9 @@ export default function CaseFilePage({ params }: { params: Promise<{ id: string 
 
         {fallbacked && (
           <p className="banner-fallback" style={{ margin: "1rem 0 0", fontSize: "0.85rem", color: "var(--cream)", borderTop: "1px solid var(--border-on-roast)", paddingTop: "1rem", paddingLeft: "0.75rem" }}>
-            Model unavailable. Taxonomy held the cause. Policy still selected the action. Stops still ran. The campaign did not stall.
+            {c.isHoldout
+              ? "The model was unavailable during diagnosis, and a deterministic fallback covered it. This holdout case was observed without intervention."
+              : "The model was unavailable for part of this case, and a deterministic fallback covered it. Policy still selected the action. Stops still ran. The campaign did not stall."}
           </p>
         )}
 

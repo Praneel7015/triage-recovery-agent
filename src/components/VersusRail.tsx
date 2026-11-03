@@ -20,8 +20,9 @@ export interface Counterpart {
   }>;
 }
 
+// The same rule the case page uses for itself: the persisted action taken.
 function firstAction(c: { actionTaken: string | null; campaignSteps: Counterpart["campaignSteps"] }) {
-  return c.campaignSteps[0]?.action ?? c.actionTaken;
+  return c.actionTaken ?? c.campaignSteps[0]?.action ?? null;
 }
 
 export function VersusRail({

@@ -140,19 +140,24 @@ export function lastEvalAsLedgerRuns(): LedgerRun[] | null {
 }
 
 /**
- * Older SQLite batch rows stored illegalRecoveredPaise as 0.
- * Overlay only that field from last-eval so the ledger does not contradict the pitch.
- * Gross recovered is never rewritten.
+ * Batch rows written before illegal recovery was measured hold a column-default 0
+ * (`illegalTracked` false). Where such a naive row recorded violations, its
+ * illegal amount is unknown, so it becomes null rather than a measured 0.
+ * Tracked rows, including a measured 0, pass through unchanged.
  */
-export function overlayIllegalFromCache<T extends { strategy: string; illegalRecoveredPaise?: number | null }>(
-  runs: T[],
-): T[] {
-  const file = readLastEval();
-  const cachedIllegal = file?.naive?.illegalRecoveredPaise ?? 0;
-  if (!cachedIllegal) return runs;
+export function markUntrackedIllegal<T extends {
+  strategy: string;
+  illegalRecoveredPaise?: number | null;
+  illegalTracked?: boolean | null;
+  illegalRetries: number;
+  dndViolations: number;
+  ignoredOptOuts: number;
+  outageContacts: number;
+}>(runs: T[]): T[] {
   return runs.map((r) => {
-    if (r.strategy !== "naive") return r;
+    if (r.strategy !== "naive" || r.illegalTracked) return r;
     if ((r.illegalRecoveredPaise ?? 0) !== 0) return r;
-    return { ...r, illegalRecoveredPaise: cachedIllegal };
+    const violations = r.illegalRetries + r.dndViolations + r.ignoredOptOuts + r.outageContacts;
+    return violations > 0 ? { ...r, illegalRecoveredPaise: null } : r;
   });
 }
