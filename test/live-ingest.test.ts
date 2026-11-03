@@ -76,3 +76,28 @@ test("two concurrent kicks for one case add one step", async () => {
     .where(eq(schema.campaignSteps.caseId, caseId)).all();
   assert.equal(steps.length, 1);
 });
+
+test("a fresh claim blocks a kick, an abandoned one can be retaken", async () => {
+  const caseId = ingest.ingestFailedPayment({
+    id: "pay_lease_1",
+    amount: 49900,
+    method: "upi",
+    error_reason: "insufficient_funds",
+  }, "payment.failed");
+  assert.ok(caseId);
+  const stepsFor = () => db.select().from(schema.campaignSteps)
+    .where(eq(schema.campaignSteps.caseId, caseId)).all().length;
+  const now = Math.floor(Date.now() / 1000);
+
+  // Another kick claimed it seconds ago and is still running.
+  db.update(schema.cases).set({ status: "in_progress", updatedAt: now - 10 })
+    .where(eq(schema.cases.id, caseId)).run();
+  await ingest.kickLiveCase(caseId);
+  assert.equal(stepsFor(), 0);
+
+  // That kick's process died an hour ago without recording anything.
+  db.update(schema.cases).set({ updatedAt: now - 3600 })
+    .where(eq(schema.cases.id, caseId)).run();
+  await ingest.kickLiveCase(caseId);
+  assert.equal(stepsFor(), 1);
+});

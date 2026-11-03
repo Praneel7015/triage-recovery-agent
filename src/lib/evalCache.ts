@@ -143,21 +143,29 @@ export function lastEvalAsLedgerRuns(): LedgerRun[] | null {
 
 /**
  * Older SQLite batch rows stored illegalRecoveredPaise as 0.
- * Overlay only that field from last-eval so the ledger does not contradict the pitch.
+ * The run that last-eval describes (matched by naiveRunId) gets the cached value.
+ * Any other naive row showing 0 despite recorded violations is a legacy row whose
+ * real amount is unknown, so it becomes null rather than a measured 0.
  * Gross recovered is never rewritten.
  */
 export function overlayIllegalFromCache<T extends {
   id: string;
   strategy: string;
   illegalRecoveredPaise?: number | null;
+  illegalRetries: number;
+  dndViolations: number;
+  ignoredOptOuts: number;
+  outageContacts: number;
 }>(runs: T[]): T[] {
   const file = readLastEval();
   const cachedIllegal = file?.naive?.illegalRecoveredPaise ?? 0;
-  // Without a run id the snapshot can't be tied to a row, so leave rows alone.
-  if (!file?.naiveRunId || !cachedIllegal) return runs;
   return runs.map((r) => {
-    if (r.strategy !== "naive" || r.id !== file.naiveRunId) return r;
+    if (r.strategy !== "naive") return r;
     if ((r.illegalRecoveredPaise ?? 0) !== 0) return r;
-    return { ...r, illegalRecoveredPaise: cachedIllegal };
+    if (file?.naiveRunId && r.id === file.naiveRunId && cachedIllegal) {
+      return { ...r, illegalRecoveredPaise: cachedIllegal };
+    }
+    const violations = r.illegalRetries + r.dndViolations + r.ignoredOptOuts + r.outageContacts;
+    return violations > 0 ? { ...r, illegalRecoveredPaise: null } : r;
   });
 }

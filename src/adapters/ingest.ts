@@ -1,6 +1,6 @@
 import { db } from "@/db/client";
 import { cases, auditLog, campaignSteps } from "@/db/schema";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNull, lt, or } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import { classifyCause } from "@/engine/taxonomy";
 import { runAgent } from "@/engine/agent";
@@ -118,6 +118,9 @@ export function ingestFailedPayment(
   return caseId;
 }
 
+/** Longer than a full agent run (two 12s LLM attempts plus queueing). */
+const CLAIM_LEASE_SECONDS = 5 * 60;
+
 /**
  * Runs the agent on a freshly ingested live case: diagnoses the failure, selects
  * the first action, updates the case record, and creates a Razorpay Payment Link
@@ -130,10 +133,21 @@ export async function kickLiveCase(caseId: string): Promise<void> {
   // Webhooks are at-least-once, and payment.failed + subscription.pending can
   // both arrive for one payment. Only the first kick may act, or the customer
   // gets a second Payment Link. Claim the case with a conditional write before
-  // the first await, so a concurrent kick cannot pass the same check.
+  // the first await, so a concurrent kick cannot pass the same check. A claim
+  // that recorded nothing within CLAIM_LEASE_SECONDS (the process died mid-run)
+  // can be taken again by a retried webhook.
+  const claimAt = Math.floor(Date.now() / 1000);
   const claimed = db.update(cases)
-    .set({ status: "in_progress", updatedAt: Math.floor(Date.now() / 1000) })
-    .where(and(eq(cases.id, caseId), eq(cases.status, "open"), isNull(cases.actionTaken), eq(cases.stepCount, 0)))
+    .set({ status: "in_progress", updatedAt: claimAt })
+    .where(and(
+      eq(cases.id, caseId),
+      isNull(cases.actionTaken),
+      eq(cases.stepCount, 0),
+      or(
+        eq(cases.status, "open"),
+        and(eq(cases.status, "in_progress"), lt(cases.updatedAt, claimAt - CLAIM_LEASE_SECONDS)),
+      ),
+    ))
     .run();
   if (claimed.changes === 0) return;
 
@@ -257,7 +271,7 @@ export async function kickLiveCase(caseId: string): Promise<void> {
     }).run();
     // Release the claim if nothing was recorded, so a later kick can retry.
     db.update(cases).set({ status: "open", updatedAt: now })
-      .where(and(eq(cases.id, caseId), isNull(cases.actionTaken), eq(cases.stepCount, 0)))
+      .where(and(eq(cases.id, caseId), eq(cases.status, "in_progress"), isNull(cases.actionTaken), eq(cases.stepCount, 0)))
       .run();
   }
 }

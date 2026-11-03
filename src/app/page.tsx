@@ -15,7 +15,8 @@ interface BatchRun {
   touchesSent: number;
   stopRuleHits: number;
   illegalRetries: number;
-  illegalRecoveredPaise: number;
+  /** null: a legacy run whose illegal amount was never recorded. */
+  illegalRecoveredPaise: number | null;
   dndViolations: number;
   ignoredOptOuts: number;
   outageContacts: number;
@@ -65,7 +66,7 @@ function CompareCol({ title, badge, run }: { title: string; badge: string; run: 
       </div>
       <div className="compare-row">
         <span>Of which illegal</span>
-        <span>{rupees(run.illegalRecoveredPaise ?? 0)}</span>
+        <span>{run.illegalRecoveredPaise == null ? "Not recorded" : rupees(run.illegalRecoveredPaise)}</span>
       </div>
       <div className="compare-row">
         <span>Outreach spend</span>
@@ -305,8 +306,10 @@ export default function LedgerPage() {
             </div>
             <p style={{ margin: "1rem 0 0", fontSize: "0.82rem", color: "var(--cream)" }}>
               Naive is ahead by {rupees(naive.amountRecoveredPaise - triage.amountRecoveredPaise)} on this batch.
-              Illegal recovery on the violating step is only {rupees(naive.illegalRecoveredPaise ?? 0)} —
-              a later legal link still counts. The {naiveViolations} rule breaks are the product: Razorpay cannot ship Naive.
+              {naive.illegalRecoveredPaise == null
+                ? "Illegal recovery was not recorded for this older run —"
+                : <>Illegal recovery on the violating step is only {rupees(naive.illegalRecoveredPaise)} —</>}
+              {" "}a later legal link still counts. The {naiveViolations} rule breaks are the product: Razorpay cannot ship Naive.
               Triage uses {naive.touchesSent - triage.touchesSent} fewer touches.
             </p>
           </section>
