@@ -303,6 +303,7 @@ function writeSummary(
       ignoredOptOuts: treated.reduce((s, r) => s + r.ignoredOptOuts, 0),
       outageContacts: treated.reduce((s, r) => s + r.outageContacts, 0),
       illegalRecoveredPaise: treated.reduce((s, r) => s + r.illegalRecoveryPaise, 0),
+      illegalTracked: true,
       outreachCostPaise: cost,
       netRecoveredPaise: econ.netRecoveredPaise,
       roi: econ.roi,
@@ -364,6 +365,5 @@ function dumpLastEval(triageRunId: string, naiveRunId: string, cases: number) {
     }),
     naive: arm(n),
     runAt: new Date().toISOString(),
-    naiveRunId,
   }, null, 2));
 }

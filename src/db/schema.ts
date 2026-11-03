@@ -193,6 +193,9 @@ export const batchRuns = sqliteTable("batch_runs", {
   ignoredOptOuts: integer("ignored_opt_outs").notNull().default(0),
   outageContacts: integer("outage_contacts").notNull().default(0),
   illegalRecoveredPaise: integer("illegal_recovered_paise").notNull().default(0),
+  // False on rows written before illegal recovery was measured: their 0 is a
+  // column default, not a result.
+  illegalTracked: integer("illegal_tracked", { mode: "boolean" }).notNull().default(false),
   // ── conversation + campaign shape ─────────────────────────────────────────
   repliesReceived: integer("replies_received").notNull().default(0),
   intentExtractions: integer("intent_extractions").notNull().default(0),

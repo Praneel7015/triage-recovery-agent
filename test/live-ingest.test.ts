@@ -101,3 +101,25 @@ test("a fresh claim blocks a kick, an abandoned one can be retaken", async () =>
   await ingest.kickLiveCase(caseId);
   assert.equal(stepsFor(), 1);
 });
+
+test("a kick whose claim was taken over records nothing", async () => {
+  const caseId = ingest.ingestFailedPayment({
+    id: "pay_fence_1",
+    amount: 59900,
+    method: "upi",
+    error_reason: "insufficient_funds",
+  }, "payment.failed");
+  assert.ok(caseId);
+
+  // The claim runs synchronously; the agent run is still pending.
+  const stale = ingest.kickLiveCase(caseId);
+  // Simulate another kick reclaiming after the lease: the claim token changes.
+  db.update(schema.cases).set({ updatedAt: 1 }).where(eq(schema.cases.id, caseId)).run();
+  await stale;
+
+  const steps = db.select().from(schema.campaignSteps)
+    .where(eq(schema.campaignSteps.caseId, caseId)).all();
+  assert.equal(steps.length, 0);
+  const row = db.select().from(schema.cases).where(eq(schema.cases.id, caseId)).get();
+  assert.equal(row?.actionTaken, null);
+});

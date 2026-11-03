@@ -181,7 +181,10 @@ export async function kickLiveCase(caseId: string): Promise<void> {
   try {
     const result = await runAgent(input);
 
-    db.update(cases).set({
+    // Fence: claimAt is this kick's claim token. If the lease expired and another
+    // kick reclaimed the case (or already recorded an action), this write changes
+    // nothing and this kick stops before any step or Payment Link.
+    const recorded = db.update(cases).set({
       cause: result.cause as any,
       diagnosisNarrative: result.diagnosisNarrative,
       actionTaken: result.action as any,
@@ -192,7 +195,13 @@ export async function kickLiveCase(caseId: string): Promise<void> {
       llmFallbacks: result.llmFallback ? 1 : 0,
       policyOverrides: result.policyOverride ? 1 : 0,
       updatedAt: now,
-    }).where(eq(cases.id, caseId)).run();
+    }).where(and(
+      eq(cases.id, caseId),
+      eq(cases.status, "in_progress"),
+      eq(cases.updatedAt, claimAt),
+      isNull(cases.actionTaken),
+    )).run();
+    if (recorded.changes === 0) return;
 
     for (const e of result.auditTrail) {
       db.insert(auditLog).values({
@@ -271,7 +280,7 @@ export async function kickLiveCase(caseId: string): Promise<void> {
     }).run();
     // Release the claim if nothing was recorded, so a later kick can retry.
     db.update(cases).set({ status: "open", updatedAt: now })
-      .where(and(eq(cases.id, caseId), eq(cases.status, "in_progress"), isNull(cases.actionTaken), eq(cases.stepCount, 0)))
+      .where(and(eq(cases.id, caseId), eq(cases.status, "in_progress"), eq(cases.updatedAt, claimAt), isNull(cases.actionTaken), eq(cases.stepCount, 0)))
       .run();
   }
 }

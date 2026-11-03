@@ -42,8 +42,6 @@ export interface LastEvalFile {
   triage: LastEvalArm;
   naive: LastEvalArm;
   runAt: string;
-  /** batch_runs id of the naive arm; only written when persist produced the file. */
-  naiveRunId?: string;
 }
 
 export interface LedgerRun {
@@ -142,29 +140,23 @@ export function lastEvalAsLedgerRuns(): LedgerRun[] | null {
 }
 
 /**
- * Older SQLite batch rows stored illegalRecoveredPaise as 0.
- * The run that last-eval describes (matched by naiveRunId) gets the cached value.
- * Any other naive row showing 0 despite recorded violations is a legacy row whose
- * real amount is unknown, so it becomes null rather than a measured 0.
- * Gross recovered is never rewritten.
+ * Batch rows written before illegal recovery was measured hold a column-default 0
+ * (`illegalTracked` false). Where such a naive row recorded violations, its
+ * illegal amount is unknown, so it becomes null rather than a measured 0.
+ * Tracked rows, including a measured 0, pass through unchanged.
  */
-export function overlayIllegalFromCache<T extends {
-  id: string;
+export function markUntrackedIllegal<T extends {
   strategy: string;
   illegalRecoveredPaise?: number | null;
+  illegalTracked?: boolean | null;
   illegalRetries: number;
   dndViolations: number;
   ignoredOptOuts: number;
   outageContacts: number;
 }>(runs: T[]): T[] {
-  const file = readLastEval();
-  const cachedIllegal = file?.naive?.illegalRecoveredPaise ?? 0;
   return runs.map((r) => {
-    if (r.strategy !== "naive") return r;
+    if (r.strategy !== "naive" || r.illegalTracked) return r;
     if ((r.illegalRecoveredPaise ?? 0) !== 0) return r;
-    if (file?.naiveRunId && r.id === file.naiveRunId && cachedIllegal) {
-      return { ...r, illegalRecoveredPaise: cachedIllegal };
-    }
     const violations = r.illegalRetries + r.dndViolations + r.ignoredOptOuts + r.outageContacts;
     return violations > 0 ? { ...r, illegalRecoveredPaise: null } : r;
   });
