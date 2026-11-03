@@ -1,6 +1,6 @@
 import { db } from "@/db/client";
 import { cases, auditLog, campaignSteps } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import { classifyCause } from "@/engine/taxonomy";
 import { runAgent } from "@/engine/agent";
@@ -129,8 +129,13 @@ export async function kickLiveCase(caseId: string): Promise<void> {
   if (!c) return;
   // Webhooks are at-least-once, and payment.failed + subscription.pending can
   // both arrive for one payment. Only the first kick may act, or the customer
-  // gets a second Payment Link.
-  if (c.actionTaken || c.stepCount > 0) return;
+  // gets a second Payment Link. Claim the case with a conditional write before
+  // the first await, so a concurrent kick cannot pass the same check.
+  const claimed = db.update(cases)
+    .set({ status: "in_progress", updatedAt: Math.floor(Date.now() / 1000) })
+    .where(and(eq(cases.id, caseId), eq(cases.status, "open"), isNull(cases.actionTaken), eq(cases.stepCount, 0)))
+    .run();
+  if (claimed.changes === 0) return;
 
   const input = {
     id: c.id,
@@ -250,5 +255,9 @@ export async function kickLiveCase(caseId: string): Promise<void> {
       actor: "executor", event: "kick_failed",
       detail: `Auto-campaign failed: ${err.message}`,
     }).run();
+    // Release the claim if nothing was recorded, so a later kick can retry.
+    db.update(cases).set({ status: "open", updatedAt: now })
+      .where(and(eq(cases.id, caseId), isNull(cases.actionTaken), eq(cases.stepCount, 0)))
+      .run();
   }
 }

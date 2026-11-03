@@ -42,6 +42,8 @@ export interface LastEvalFile {
   triage: LastEvalArm;
   naive: LastEvalArm;
   runAt: string;
+  /** batch_runs id of the naive arm; only written when persist produced the file. */
+  naiveRunId?: string;
 }
 
 export interface LedgerRun {
@@ -145,19 +147,17 @@ export function lastEvalAsLedgerRuns(): LedgerRun[] | null {
  * Gross recovered is never rewritten.
  */
 export function overlayIllegalFromCache<T extends {
+  id: string;
   strategy: string;
   illegalRecoveredPaise?: number | null;
-  totalCases: number;
-  amountRecoveredPaise: number;
 }>(runs: T[]): T[] {
   const file = readLastEval();
   const cachedIllegal = file?.naive?.illegalRecoveredPaise ?? 0;
-  if (!file || !cachedIllegal) return runs;
+  // Without a run id the snapshot can't be tied to a row, so leave rows alone.
+  if (!file?.naiveRunId || !cachedIllegal) return runs;
   return runs.map((r) => {
-    if (r.strategy !== "naive") return r;
+    if (r.strategy !== "naive" || r.id !== file.naiveRunId) return r;
     if ((r.illegalRecoveredPaise ?? 0) !== 0) return r;
-    // Only the run this snapshot describes; an older run keeps its own numbers.
-    if (r.totalCases !== file.cases || r.amountRecoveredPaise !== file.naive.grossRecoveredPaise) return r;
     return { ...r, illegalRecoveredPaise: cachedIllegal };
   });
 }

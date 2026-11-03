@@ -364,5 +364,6 @@ function dumpLastEval(triageRunId: string, naiveRunId: string, cases: number) {
     }),
     naive: arm(n),
     runAt: new Date().toISOString(),
+    naiveRunId,
   }, null, 2));
 }

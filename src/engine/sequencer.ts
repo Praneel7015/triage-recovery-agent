@@ -216,6 +216,8 @@ export async function runCampaign(c: CaseInput, opts: { holdoutFraction?: number
         const due = new Date(promise);
         const wait = Math.ceil((due.getTime() - dayToDate(day).getTime()) / 86400_000);
         day += Math.max(1, wait);
+        // The wait is over; don't let it decide the final outcome.
+        finalStopCode = undefined;
         resumeAfterPromise = true;
         continue;
       }

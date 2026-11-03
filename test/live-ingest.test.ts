@@ -58,3 +58,21 @@ test("re-ingesting the same payment returns the existing case", () => {
   const rows = db.select().from(schema.cases).where(eq(schema.cases.id, first!)).all();
   assert.equal(rows.length, 1);
 });
+
+test("two concurrent kicks for one case add one step", async () => {
+  const caseId = ingest.ingestFailedPayment({
+    id: "pay_race_1",
+    amount: 99900,
+    method: "upi",
+    error_code: "BAD_REQUEST_ERROR",
+    error_reason: "insufficient_funds",
+    error_description: "Insufficient funds",
+  }, "payment.failed");
+  assert.ok(caseId);
+
+  await Promise.all([ingest.kickLiveCase(caseId), ingest.kickLiveCase(caseId)]);
+
+  const steps = db.select().from(schema.campaignSteps)
+    .where(eq(schema.campaignSteps.caseId, caseId)).all();
+  assert.equal(steps.length, 1);
+});

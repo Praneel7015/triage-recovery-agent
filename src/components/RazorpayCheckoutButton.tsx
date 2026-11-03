@@ -33,7 +33,11 @@ function loadCheckoutScript(): Promise<void> {
   if (existing) {
     return new Promise((resolve, reject) => {
       if (window.Razorpay) return resolve();
-      existing.addEventListener("load", () => (window.Razorpay ? resolve() : reject(new Error("checkout.js loaded without Razorpay"))), { once: true });
+      existing.addEventListener("load", () => {
+        if (window.Razorpay) return resolve();
+        existing.remove();
+        reject(new Error("checkout.js loaded without Razorpay"));
+      }, { once: true });
       existing.addEventListener("error", () => { existing.remove(); reject(new Error("checkout.js failed to load")); }, { once: true });
     });
   }
@@ -43,7 +47,11 @@ function loadCheckoutScript(): Promise<void> {
     s.id = "rzp-checkout-script";
     s.src = "https://checkout.razorpay.com/v1/checkout.js";
     s.async = true;
-    s.onload = () => (window.Razorpay ? resolve() : reject(new Error("checkout.js loaded without Razorpay")));
+    s.onload = () => {
+      if (window.Razorpay) return resolve();
+      s.remove();
+      reject(new Error("checkout.js loaded without Razorpay"));
+    };
     // Remove a failed tag so the next attempt creates a fresh one instead of
     // waiting on events that already fired.
     s.onerror = () => { s.remove(); reject(new Error("checkout.js failed to load")); };
