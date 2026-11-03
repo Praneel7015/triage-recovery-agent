@@ -66,7 +66,10 @@ export async function createPaymentLink(
       customer_id: params.customerId,
       source: "triage_agent",
     },
-    callback_url: `${process.env.APP_BASE_URL ?? "http://localhost:3000"}/api/webhooks/razorpay`,
+    // reference_id is in the GET-callback HMAC payload; case id is unique and ≤40 chars.
+    reference_id: params.caseId.slice(0, 40),
+    // case_id query so localhost recover works without a public webhook.
+    callback_url: `${process.env.APP_BASE_URL ?? "http://localhost:3000"}/api/webhooks/razorpay?case_id=${encodeURIComponent(params.caseId)}`,
     callback_method: "get",
   } as any);
 
@@ -75,6 +78,48 @@ export async function createPaymentLink(
     short_url: (link as any).short_url,
     status: (link as any).status,
   };
+}
+
+/** timingSafeEqual throws on length mismatch — never let that become a 500 on camera. */
+export function signaturesMatch(expectedHex: string, provided: string): boolean {
+  const a = Buffer.from(expectedHex);
+  const b = Buffer.from(provided);
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(a, b);
+}
+
+/** Checkout.js handler: HMAC(order_id|payment_id) with key secret. */
+export function verifyCheckoutSignature(orderId: string, paymentId: string, signature: string): boolean {
+  const keySecret = process.env.RAZORPAY_KEY_SECRET;
+  if (!keySecret) return false;
+  const expected = crypto
+    .createHmac("sha256", keySecret)
+    .update(`${orderId}|${paymentId}`)
+    .digest("hex");
+  return signaturesMatch(expected, signature);
+}
+
+/**
+ * Payment Link GET callback: HMAC(plink_id|reference_id|status|payment_id).
+ * Not the same payload as Checkout.js.
+ */
+export function verifyPaymentLinkCallback(params: {
+  paymentLinkId: string;
+  paymentLinkReferenceId: string;
+  paymentLinkStatus: string;
+  paymentId: string;
+  signature: string;
+}): boolean {
+  const keySecret = process.env.RAZORPAY_KEY_SECRET;
+  if (!keySecret) return false;
+  const payload = [
+    params.paymentLinkId,
+    params.paymentLinkReferenceId,
+    params.paymentLinkStatus,
+    params.paymentId,
+  ].join("|");
+  const expected = crypto.createHmac("sha256", keySecret).update(payload).digest("hex");
+  return signaturesMatch(expected, params.signature);
 }
 
 /**
@@ -90,7 +135,7 @@ export function verifyWebhookSignature(rawBody: string, signature: string): void
     .update(rawBody)
     .digest("hex");
 
-  if (!crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signature))) {
+  if (!signaturesMatch(expected, signature)) {
     throw new Error("Webhook signature mismatch.");
   }
 }

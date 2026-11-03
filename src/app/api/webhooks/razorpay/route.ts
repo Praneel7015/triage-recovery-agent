@@ -1,11 +1,10 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db/client";
-import { cases, auditLog } from "@/db/schema";
-import { eq } from "drizzle-orm";
-import { verifyWebhookSignature } from "@/adapters/razorpay";
+import { auditLog } from "@/db/schema";
+import { verifyWebhookSignature, verifyPaymentLinkCallback } from "@/adapters/razorpay";
 import { ingestFailedPayment, kickLiveCase } from "@/adapters/ingest";
+import { markCaseRecovered, findCaseIdFromPaymentNotes } from "@/lib/markRecovered";
 import { randomUUID } from "crypto";
-import crypto from "crypto";
 import { migrate } from "@/db/migrate";
 
 migrate();
@@ -26,14 +25,22 @@ export async function POST(request: Request) {
 
   const paymentEntity =
     payload.payload?.payment?.entity ??
-    payload.payload?.payment_link?.entity ??
     {};
+  const paymentLinkEntity = payload.payload?.payment_link?.entity ?? {};
   const subscriptionEntity = payload.payload?.subscription?.entity ?? null;
-  const notes = paymentEntity.notes ?? {};
-  let caseId  = notes.case_id as string | undefined;
+  const notes = {
+    ...(paymentLinkEntity.notes ?? {}),
+    ...(paymentEntity.notes ?? {}),
+  };
+  let caseId  = (notes.case_id as string | undefined)
+    ?? findCaseIdFromPaymentNotes({
+      notesCaseId: notes.case_id,
+      paymentLinkId: paymentLinkEntity.id,
+      paymentId: paymentEntity.id,
+    });
 
   // ── Ingest new failures into the case store ───────────────────────────────
-  if (event === "payment.failed" && !caseId) {
+  if (event === "payment.failed" && !notes.case_id) {
     caseId = ingestFailedPayment(paymentEntity, event, subscriptionEntity) ?? undefined;
     if (caseId) void kickLiveCase(caseId);
   }
@@ -45,33 +52,35 @@ export async function POST(request: Request) {
       subscription_id: subscriptionEntity.id,
       notes: subscriptionEntity.notes ?? {},
     };
-    if (!caseId) {
+    if (!notes.case_id) {
       caseId = ingestFailedPayment(pendingPayment, event, subscriptionEntity) ?? undefined;
       if (caseId) void kickLiveCase(caseId);
     }
   }
 
-  // ── Handle payment.captured on a payment link ─────────────────────────────
+  // ── Handle payment captured / link paid ───────────────────────────────────
   if (event === "payment_link.paid" || event === "payment.captured") {
-    caseId = caseId ?? notes.case_id;
+    caseId = caseId ?? findCaseIdFromPaymentNotes({
+      notesCaseId: notes.case_id,
+      paymentLinkId: paymentLinkEntity.id,
+      paymentId: paymentEntity.id,
+    });
 
     if (caseId) {
-      db.update(cases).set({ status: "recovered", resolvedAt: now, updatedAt: now }).where(eq(cases.id, caseId)).run();
-      db.insert(auditLog).values({
-        id: randomUUID(), caseId, ts: now,
-        actor: "webhook", event: "payment_received",
+      markCaseRecovered({
+        caseId,
+        paymentId: paymentEntity.id,
         detail: `Razorpay webhook ${event}: payment received. Case marked recovered.`,
-      }).run();
+      });
     }
   }
 
   // ── Handle payment.failed on an existing recovery link ────────────────────
-  if (event === "payment.failed" && caseId && notes.case_id) {
-    db.update(cases).set({ status: "unrecoverable", updatedAt: now }).where(eq(cases.id, caseId)).run();
+  if (event === "payment.failed" && notes.case_id) {
     db.insert(auditLog).values({
-      id: randomUUID(), caseId, ts: now,
+      id: randomUUID(), caseId: notes.case_id, ts: now,
       actor: "webhook", event: "payment_failed_again",
-      detail: `Razorpay webhook payment.failed: ${paymentEntity.error_description ?? "Unknown error"}.`,
+      detail: `Razorpay webhook payment.failed: ${paymentEntity.error_description ?? "Unknown error"}. Case stays open.`,
     }).run();
   }
 
@@ -81,31 +90,40 @@ export async function POST(request: Request) {
 export async function GET(request: Request) {
   const url     = new URL(request.url);
   const caseId  = url.searchParams.get("case_id");
-  const status  = url.searchParams.get("razorpay_payment_link_status");
-  const linkId  = url.searchParams.get("razorpay_payment_link_id");
-  const payId   = url.searchParams.get("razorpay_payment_id");
-  const sig     = url.searchParams.get("razorpay_signature");
+  const status  = url.searchParams.get("razorpay_payment_link_status") ?? "";
+  const linkId  = url.searchParams.get("razorpay_payment_link_id") ?? "";
+  const payId   = url.searchParams.get("razorpay_payment_id") ?? "";
+  const sig     = url.searchParams.get("razorpay_signature") ?? "";
+  const refId   = url.searchParams.get("razorpay_payment_link_reference_id") ?? "";
 
-  // Verify the callback using the Razorpay signature on the query params.
+  let recoveredCaseId: string | undefined;
+
   if (linkId && payId && sig) {
-    const expected = crypto
-      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET ?? "")
-      .update(`${linkId}|${payId}`)
-      .digest("hex");
-    if (!crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(sig))) {
-      return NextResponse.redirect(new URL(`/cases/${caseId ?? ""}`, request.url));
+    const ok = verifyPaymentLinkCallback({
+      paymentLinkId: linkId,
+      paymentLinkReferenceId: refId,
+      paymentLinkStatus: status,
+      paymentId: payId,
+      signature: sig,
+    });
+    if (ok && (status === "paid" || status === "partially_paid")) {
+      recoveredCaseId =
+        caseId
+        ?? findCaseIdFromPaymentNotes({
+          notesCaseId: refId || undefined,
+          paymentLinkId: linkId,
+          paymentId: payId || undefined,
+        });
+      if (recoveredCaseId) {
+        markCaseRecovered({
+          caseId: recoveredCaseId,
+          paymentId: payId,
+          detail: "Payment link callback (GET): signature verified. Case marked recovered.",
+        });
+      }
     }
   }
 
-  if (caseId && status === "paid") {
-    const now = Math.floor(Date.now() / 1000);
-    db.update(cases).set({ status: "recovered", resolvedAt: now, updatedAt: now }).where(eq(cases.id, caseId)).run();
-    db.insert(auditLog).values({
-      id: randomUUID(), caseId, ts: now,
-      actor: "webhook", event: "payment_received",
-      detail: "Payment link callback (GET): status=paid. Case marked recovered.",
-    }).run();
-  }
-
-  return NextResponse.redirect(new URL(`/cases/${caseId ?? ""}`, request.url));
+  const dest = recoveredCaseId ?? caseId ?? findCaseIdFromPaymentNotes({ paymentLinkId: linkId }) ?? "";
+  return NextResponse.redirect(new URL(`/cases/${dest}`, request.url));
 }

@@ -2,45 +2,59 @@
 
 > **Razorpay AI Buildathon 2026 · Track 03: AI Revenue Recovery**
 
-Triage is a bounded AI agent that recovers failed Indian Autopay and subscription revenue. It diagnoses *why* a payment failed before deciding *how* to recover — then proves the approach on a 168-case batch with holdout-measured lift, unit economics, and a full audit trail.
+Triage is a bounded recovery agent for Indian Autopay failures. It diagnoses *why* a payment failed, picks the intervention that failure earned, and refuses the interventions a listed company is not allowed to run.
+
+Naive dunning recovers more rupees on this batch. Triage recovers less, touches fewer customers, and breaks zero rules. A merchant can book every rupee. Razorpay can ship it.
+
+```bash
+npm install
+cp .env.example .env          # RAZORPAY_*, LLM_API_KEY, RAZORPAY_WEBHOOK_SECRET
+
+npm run compliance            # 15 invariants — must pass
+npm run eval                  # 168-case batch; writes data/last-eval.json
+npm run build && npm start    # record the pitch against this, not `next dev`
+npm run dev                   # http://localhost:3000 (dev only)
+```
 
 ---
 
-## The thesis
+## The thesis (honest)
 
-Razorpay already retries. The unsolved problem is **which intervention the failure earned**, under a retry cap.
+Razorpay already retries. The unsolved problem is **which intervention the failure earned**, under a retry cap — and which interventions you are not allowed to run.
 
 The same `payment.failed` event is four different diseases:
 
 | Cause | Right move | Naive (wrong) |
 |---|---|---|
-| `insufficient_funds` | Silent retry after salary window | Retry now on empty account |
-| `bank_outage` | **Do nothing** | Sends a payment link during a live outage |
-| `mandate_revoked` | One-time Payment Link | Retries the dead mandate (illegal) |
+| `insufficient_funds` | Silent retry after salary window | Retry now on an empty account |
+| `bank_outage` | **Do nothing** | Payment link during a live outage |
+| `mandate_revoked` | One-time Payment Link | Silent-retry a dead mandate (**illegal**) |
 | `customer_cancelled` | Do nothing | Spam dunning blast |
 
-Naive dunning often recovers more **gross** rupees by messaging everyone. Triage wins on **compliance**, **net bankable recovery**, and **incremental lift** measured against a holdout that is never contacted.
+On the 168-case batch, Naive recovers more **gross and bankable** rupees by messaging everyone. The illegal slice of that recovery is small (a later legal link still counts). What is not small is **157 rule breaks** — DND, opt-outs, dead-mandate retries, contacts during outage. Triage: **0**.
+
+Triage is not a money-maxing bot. It is a fiduciary decision engine. TRAI, NPCI, and merchant deboarding care about the 157, not the extra lakhs from spam.
 
 ---
 
-## Quick start
+## What this is / is not
 
-```bash
-npm install
-cp .env.example .env   # RAZORPAY_*, LLM_API_KEY, RAZORPAY_WEBHOOK_SECRET
+**Is:** cause taxonomy over real Razorpay error fields → policy graph (only place an action is selected) → stop rules (only place an action is vetoed) → 30-day campaign in eval, single-shot live path → audit trail. LLM writes diagnosis copy, Hinglish outreach, and intent extraction. **It never selects an action or moves money.**
 
-# Batch eval (CLI, ~10 min with LLM)
-npm run eval
+**Is not:** a WhatsApp/SMS/voice sender. Eval outreach is simulated. Live execution creates a Razorpay Payment Link or Checkout.js order and closes the case on `payment.captured` / signature verify. Checkout and B2B invoice rows in `data/batch.json` are **dataset mix**, not separate product lanes — policy does not branch on `segment` or `agingDays`.
 
-# Compliance property checks (must pass before shipping policy changes)
-npm run compliance
+---
 
-# Control tower UI
-npm run dev
-# http://localhost:3000 → Run batch eval (runs in background, polls until done)
-```
+## Scripts
 
-**Live demo:** POST `/api/live` from a case file to create a Razorpay Payment Link. Point webhooks at `/api/webhooks/razorpay` (ngrok in dev). `payment.failed` and `subscription.pending` events auto-open case files.
+| Command | Purpose |
+|---|---|
+| `npm run compliance` | 15 property checks over every campaign. Run this first. |
+| `npm run eval` | 168 cases through Triage + Naive. Prints economics, lift, compliance. Writes `data/last-eval.json`. |
+| `npm run dev` | Control tower. Ledger falls back to `last-eval.json` if no DB run exists. |
+| `npm run build` | Production build |
+
+**Live demo (test mode):** `POST /api/demo/trigger` with `{ "scenario": "mandate_revoked" }` opens a case, runs the agent, and creates a Payment Link when policy asks for one. Pay with Checkout.js (test card). Webhook / signature verify marks the case recovered. Tunnel with ngrok and set `APP_BASE_URL` — see [docs/DEMO.md](docs/DEMO.md). Pitch script: [docs/PITCH.md](docs/PITCH.md).
 
 ---
 
@@ -62,43 +76,30 @@ Webhook / batch.json
   Stop Rules              ← ONLY place action can be vetoed
         │
         ▼
-  30-day Campaign         ← cause-conditioned ladder + Hinglish reply loop
-  Sequencer               ← holdout arm never contacted
+  Eval: 30-day sequencer  ← cause-conditioned ladder + simulated Hinglish replies
+  Live: single-shot       ← first action + Payment Link / Checkout.js
         │
         ▼
-  Simulator (eval) / Razorpay Payment Links (live)
+  Simulator (eval) / Razorpay test-mode (live)
         │
         ▼
-  Control Tower           ← ledger, case files, campaign timeline, audit trail
+  Control Tower           ← ledger (Naive ₹ first), case files, vs-rail, audit
 ```
 
-**Core rule:** LLM writes diagnosis copy, Hinglish outreach, and promise-to-pay extraction. **It never selects an action or fires a contact.** Policy selects; stop rules veto.
-
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full data flow.
-
----
-
-## Scripts
-
-| Command | Purpose |
-|---|---|
-| `npm run eval` | Run 168-case batch through Triage + naive; print economics, lift, compliance |
-| `npm run compliance` | Assert 15 compliance invariants across every campaign |
-| `npm run dev` | Control tower UI + API |
-| `npm run build` | Production build |
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ---
 
 ## Stack
 
-- **Next.js App Router + TypeScript**
-- **SQLite + Drizzle** — cases, campaign steps, audit log, batch runs
-- **Razorpay Node SDK** — Payment Links, webhook HMAC, live failure ingest
-- **OpenAI-compatible LLM** (Groq tested) — diagnosis + Hinglish copy + intent extraction
-- **Deterministic simulator** — cause-faithful outcomes for reproducible eval
+- Next.js App Router + TypeScript
+- SQLite + Drizzle — cases, campaign steps, audit log, batch runs
+- Razorpay Node SDK — Payment Links, Orders, webhook HMAC
+- OpenAI-compatible LLM (Groq `groq/compound-mini` tested) — diagnosis + copy + intent, never money
+- Deterministic simulator — cause-faithful outcomes for reproducible eval
 
 ---
 
 ## Pitch in one sentence
 
-> Razorpay already retries. Triage decides *which* intervention the failure earned, runs a bounded 30-day campaign under hard stop rules, and proves incremental lift on a holdout with an audit trail.
+> Razorpay already retries. Triage decides which intervention a failure earned, refuses the illegal ones, and proves the tradeoff on a holdout: Naive wins rupees, Triage is the one you can ship.

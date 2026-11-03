@@ -8,7 +8,7 @@ import { report } from "@/engine/economics";
 import { computeLift } from "@/engine/holdout";
 import { classifyCause } from "@/engine/taxonomy";
 import type { CaseInput } from "@/engine/agent";
-import { readFileSync } from "fs";
+import { readFileSync, writeFileSync } from "fs";
 import { randomUUID } from "crypto";
 import { eq, isNotNull } from "drizzle-orm";
 
@@ -56,6 +56,7 @@ export async function runBatch(batchPath = "./data/batch.json") {
 
   writeSummary(triageRunId, raws, triageRuns, null);
   writeSummary(naiveRunId,  raws, null, naiveRuns);
+  dumpLastEval(triageRunId, naiveRunId, raws.length);
 
   return { triageRunId, naiveRunId };
 }
@@ -318,4 +319,50 @@ function writeSummary(
       completedAt: done,
     }).where(eq(batchRuns.id, runId)).run();
   }
+}
+
+function dumpLastEval(triageRunId: string, naiveRunId: string, cases: number) {
+  const t = db.select().from(batchRuns).where(eq(batchRuns.id, triageRunId)).get();
+  const n = db.select().from(batchRuns).where(eq(batchRuns.id, naiveRunId)).get();
+  if (!t || !n) return;
+
+  const arm = (row: typeof t, extra: Record<string, unknown> = {}) => ({
+    name: row.name,
+    treatedCases: row.treatedCases,
+    treatedRecovered: row.treatedRecovered,
+    holdoutCases: row.holdoutCases,
+    holdoutRecovered: row.holdoutRecovered,
+    amountAtRiskPaise: row.amountAtRiskPaise,
+    grossRecoveredPaise: row.amountRecoveredPaise,
+    compliantRecoveredPaise: row.amountRecoveredPaise - (row.illegalRecoveredPaise ?? 0),
+    illegalRecoveredPaise: row.illegalRecoveredPaise ?? 0,
+    outreachCostPaise: row.outreachCostPaise,
+    netRecoveredPaise: row.netRecoveredPaise,
+    netBankablePaise: row.amountRecoveredPaise - (row.illegalRecoveredPaise ?? 0) - row.outreachCostPaise,
+    roi: Number(row.roi.toFixed(2)),
+    costPerRupeeRecovered: Number(row.costPerRupeeRecovered.toFixed(5)),
+    touches: row.touchesSent,
+    absoluteLiftPct: Number(row.absoluteLiftPct.toFixed(2)),
+    relativeLiftPct: Number(row.relativeLiftPct.toFixed(1)),
+    compliance: {
+      illegalRetries: row.illegalRetries,
+      dndViolations: row.dndViolations,
+      ignoredOptOuts: row.ignoredOptOuts,
+      outageContacts: row.outageContacts,
+    },
+    avgStepsPerCase: Number(row.avgStepsPerCase.toFixed(2)),
+    avgDaysToRecovery: Number(row.avgDaysToRecovery.toFixed(2)),
+    ...extra,
+  });
+
+  writeFileSync("./data/last-eval.json", JSON.stringify({
+    cases,
+    triage: arm(t, {
+      llmFallbacks: t.llmFallbacks,
+      policyOverrides: t.policyOverrides,
+      intentAccuracyPct: Number(t.intentAccuracyPct.toFixed(1)),
+    }),
+    naive: arm(n),
+    runAt: new Date().toISOString(),
+  }, null, 2));
 }

@@ -60,9 +60,16 @@ async function main() {
   printSegments(triageRuns, batch);
   printAI(triageRuns);
 
+  const extractions = triageRuns.reduce((s, r) => s + r.intentExtractions, 0);
+  const correct = triageRuns.reduce((s, r) => s + r.intentCorrect, 0);
   const out = {
     cases: batch.length,
-    triage: stripReports(triage),
+    triage: {
+      ...stripReports(triage),
+      llmFallbacks: triageRuns.reduce((s, r) => s + r.llmFallbacks, 0),
+      policyOverrides: triageRuns.reduce((s, r) => s + r.policyOverrides, 0),
+      intentAccuracyPct: extractions ? Number(((correct / extractions) * 100).toFixed(1)) : 0,
+    },
     naive: stripReports(naive),
     runAt: new Date().toISOString(),
   };

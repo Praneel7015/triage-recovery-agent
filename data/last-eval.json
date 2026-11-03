@@ -3,30 +3,32 @@
   "triage": {
     "name": "Triage",
     "treatedCases": 150,
-    "treatedRecovered": 82,
+    "treatedRecovered": 78,
     "holdoutCases": 18,
     "holdoutRecovered": 4,
     "amountAtRiskPaise": 124483400,
-    "grossRecoveredPaise": 46292700,
-    "compliantRecoveredPaise": 46292700,
+    "grossRecoveredPaise": 46032900,
+    "compliantRecoveredPaise": 46032900,
     "illegalRecoveredPaise": 0,
-    "taintedCases": 0,
-    "outreachCostPaise": 106775,
-    "netRecoveredPaise": 46185925,
-    "netBankablePaise": 46185925,
-    "roi": 433.55,
-    "costPerRupeeRecovered": 0.00231,
-    "touches": 152,
-    "absoluteLiftPct": 32.44,
-    "relativeLiftPct": 146,
+    "outreachCostPaise": 84025,
+    "netRecoveredPaise": 45948875,
+    "netBankablePaise": 45948875,
+    "roi": 547.85,
+    "costPerRupeeRecovered": 0.00183,
+    "touches": 146,
+    "absoluteLiftPct": 29.78,
+    "relativeLiftPct": 134,
     "compliance": {
       "illegalRetries": 0,
       "dndViolations": 0,
       "ignoredOptOuts": 0,
       "outageContacts": 0
     },
-    "avgStepsPerCase": 1.99,
-    "avgDaysToRecovery": 3.14
+    "avgStepsPerCase": 1.97,
+    "avgDaysToRecovery": 2.9,
+    "llmFallbacks": 91,
+    "policyOverrides": 0,
+    "intentAccuracyPct": 97.4
   },
   "naive": {
     "name": "Naive",
@@ -38,7 +40,6 @@
     "grossRecoveredPaise": 73161100,
     "compliantRecoveredPaise": 72571700,
     "illegalRecoveredPaise": 589400,
-    "taintedCases": 52,
     "outreachCostPaise": 30175,
     "netRecoveredPaise": 73130925,
     "netBankablePaise": 72541525,
@@ -56,5 +57,5 @@
     "avgStepsPerCase": 3.84,
     "avgDaysToRecovery": 4.71
   },
-  "runAt": "2026-08-23T17:33:12.460Z"
+  "runAt": "2026-09-01T13:27:04.445Z"
 }
