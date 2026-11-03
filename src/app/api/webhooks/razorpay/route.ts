@@ -106,14 +106,14 @@ export async function GET(request: Request) {
       paymentId: payId,
       signature: sig,
     });
-    if (ok && (status === "paid" || status === "partially_paid")) {
-      recoveredCaseId =
-        caseId
-        ?? findCaseIdFromPaymentNotes({
-          notesCaseId: refId || undefined,
-          paymentLinkId: linkId,
-          paymentId: payId || undefined,
-        });
+    // Only the signed fields may pick the case. `case_id` is an unsigned query
+    // param: trusting it would let one genuine paid callback close any case.
+    // A partial payment is not a recovery.
+    if (ok && status === "paid") {
+      recoveredCaseId = findCaseIdFromPaymentNotes({
+        notesCaseId: refId || undefined,
+        paymentLinkId: linkId,
+      });
       if (recoveredCaseId) {
         markCaseRecovered({
           caseId: recoveredCaseId,
@@ -125,5 +125,5 @@ export async function GET(request: Request) {
   }
 
   const dest = recoveredCaseId ?? caseId ?? findCaseIdFromPaymentNotes({ paymentLinkId: linkId }) ?? "";
-  return NextResponse.redirect(new URL(`/cases/${dest}`, request.url));
+  return NextResponse.redirect(new URL(`/cases/${encodeURIComponent(dest)}`, request.url));
 }

@@ -140,6 +140,25 @@ export function verifyWebhookSignature(rawBody: string, signature: string): void
   }
 }
 
+export interface OrderSnapshot {
+  id: string;
+  amount: number;
+  currency?: string;
+  notes?: Record<string, unknown>;
+}
+
+/** Fetch an order by ID — the authoritative record of which case it was created for. */
+export async function fetchOrder(orderId: string): Promise<OrderSnapshot> {
+  const rz = getClient();
+  const o = await rz.orders.fetch(orderId);
+  return {
+    id: o.id,
+    amount: Number(o.amount),
+    currency: o.currency,
+    notes: (o.notes ?? {}) as Record<string, unknown>,
+  };
+}
+
 /** Fetch a payment link by ID */
 export async function getPaymentLink(id: string) {
   const rz = getClient();

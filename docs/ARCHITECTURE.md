@@ -121,7 +121,7 @@ This is **not** the 30-day sequencer. Live ingest runs `runAgent()` once: diagno
 6. Audit actor is `webhook`. The LLM is not in this path.
 7. If `paymentLink.create()` throws: `executor_failure` is logged, `escalated: true` — the case stays open for a human
 
-Webhook HMAC is verified. Checkout confirm verifies `order_id|payment_id`. Recovered writes are idempotent.
+Webhook HMAC is verified. Checkout confirm verifies `order_id|payment_id`, then fetches the order and requires its `notes.case_id` and amount to match the case. The Payment Link GET callback picks the case only from signed fields (reference id, link id), never from the `case_id` query param, and ignores `partially_paid`. Recovered writes are idempotent. `npm test` covers these paths.
 
 ---
 
