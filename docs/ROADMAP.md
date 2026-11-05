@@ -1,6 +1,6 @@
 # Roadmap
 
-Written 3 Nov 2026 after an audit of `feat/razorpay-adapters-eval-ui-docs` (PR #1, commit `8d5e2e3`).
+Written 3 Nov 2026 after an audit of PR #1 (now merged). Updated 5 Nov 2026: P0 #1 and #4 are done, and P0 #2 is the CI PR.
 
 Sizes: **XS** < 1h · **S** half a day · **M** 1–2 days · **L** most of a week.
 
@@ -12,9 +12,9 @@ Sizes: **XS** < 1h · **S** half a day · **M** 1–2 days · **L** most of a we
 | `next build` | passes (13 routes) |
 | `npm run compliance` | 15/15 properties hold over 168 campaigns |
 | `npm run eval` (no keys) | runs; Triage 78/150 recovered, 29.8 pp lift, 0 violations; Naive 90/150, 37.8 pp, 157 violations |
-| `eslint` | **fails**: 49 errors, 8 warnings (45× `no-explicit-any`, 4× `react-hooks/set-state-in-effect`) |
-| Unit tests | none |
-| CI | none |
+| `eslint` | **fails on `main`** (`no-explicit-any`, `react-hooks/set-state-in-effect`); 0 errors once the CI PR lands |
+| Tests | `npm test`: 20 `node:test` cases (recovery spoofing, live-ingest idempotency, eval-cache provenance) |
+| CI | none on `main` yet; added by the CI PR |
 
 `npm run eval` needs no keys. Without `LLM_API_KEY` the agent falls back to taxonomy-only diagnosis and the headline numbers are unchanged.
 
@@ -25,23 +25,23 @@ Two paths can mark a case `recovered` (and write a `payment_received` audit row)
 - `GET /api/webhooks/razorpay` checks the Payment Link signature, then marks the case named by the **unsigned** `case_id` query param. One genuine paid callback, replayed with a different `case_id`, closes any case.
 - `POST /api/live/confirm` checks the Checkout signature over `order_id|payment_id`, but never checks that the order belongs to `caseId`. One genuine Checkout payment closes any case.
 
-The audit trail is the core of the product, so this comes first. The fix: never use a request-supplied `caseId` as the payment-to-case binding. For Payment Links, resolve the case from the signed link id / reference id. For Checkout, the HMAC covers only `order_id|payment_id`, so fetch that order from Razorpay on the server and require its `notes.case_id` and amount to match. Add a test harness with regression tests. (Done in PR #3.)
+The audit trail is the core of the product, so this comes first. The fix: never use a request-supplied `caseId` as the payment-to-case binding. For Payment Links, resolve the case from the signed link id / reference id. For Checkout, the HMAC covers only `order_id|payment_id`, so fetch that order from Razorpay on the server and require its `notes.case_id` and amount to match. Add a test harness with regression tests. **Done in #6.**
 
 ### 2. Get lint green and add the CI/CD stack (M)
-49 lint errors mean new bugs hide in the noise, and nothing checks a PR before merge. The repo also handles Razorpay keys, so secret scanning matters. The plan:
+**In progress: the CI PR.** Lint errors mean new bugs hide in the noise, and nothing checks a PR before merge. The repo also handles Razorpay keys, so secret scanning matters. The plan:
 - Make eslint pass: type the Drizzle enum columns and the Razorpay SDK calls, and replace the `setState`-in-effect patterns.
 - `ci.yml`: lint, `tsc`, tests with coverage uploaded to Codecov, `compliance`, keyless `eval` and build, with no real keys. Plus a gitleaks secret-scan job over full history.
 - CodeQL, OpenSSF Scorecard, Release Please (node), and grouped weekly Dependabot for npm and actions.
 - CodeRabbit with path instructions: `policy.ts` is the only place an action is selected, and compliance rules are hard constraints.
 - Pin every action to a commit SHA. Add a PR template and README badges.
 
-Settings only Praneel can change: the `CODECOV_TOKEN` secret, letting Actions create PRs (Release Please needs it), code scanning, and branch protection on `main`.
+Settings only Praneel can change (`CODECOV_TOKEN` is already set): letting Actions create PRs (Release Please needs it), code scanning, and branch protection on `main`.
 
 ### 3. Re-baseline the published numbers (XS, needs Praneel's decision)
 The resume and pitch quote **+32-pt lift** and **64% fewer messages**. Those came from the 23 Aug eval (82/150 recovered, 32.4 pp). The code on PR #1 gives **29.8 pp** and **146 vs 426 touches (66% fewer)**, both with and without an LLM key. The committed `data/last-eval.json` (1 Sep) already shows 29.8 pp. Either re-run with the tested Groq config and commit the result, or update the quoted figures. Don't tune the simulator to recover the old number.
 
 ### 4. Land PR #1 and tidy `main` (XS)
-PR #1 is mergeable and is strictly better than `origin/main`: it has the signature-length fix, the Payment Link HMAC fix, and the 168-case docs. Local `main` already points at the PR #1 commit and is "ahead 1" only because of that, so after merging, reset local `main` to `origin/main`.
+**Done.** #1 was squash-merged, followed by #6 (spoofing fix) and #5 (fixes from #1's review). Remaining: reset local `main` to `origin/main`.
 
 ## P1: needed for a real deploy
 
@@ -52,17 +52,17 @@ Every route is public. `POST /api/eval` starts a ~10-minute LLM job. `POST /api/
 SQLite on local disk is fine on a VM with a volume (Fly.io, Railway) but is lost on serverless hosts. `migrate()` runs at import time in every route module. Pick a host first. Then either keep SQLite on a volume or move to Turso or Postgres via Drizzle, and switch to `drizzle-kit` migrations.
 
 ### 7. Webhook hardening (M)
-- Deduplicate on `x-razorpay-event-id`. Razorpay retries, and only `markCaseRecovered` is idempotent today.
+- Deduplicate on `x-razorpay-event-id`. Razorpay retries; `markCaseRecovered` and `kickLiveCase` (claim with lease and token, #5) are idempotent, the rest of the handler is not.
 - `kickLiveCase` is fire-and-forget (`void`). On serverless it can be killed after the response is sent, so it needs a durable job.
 - `payment.failed` with an unknown `notes.case_id` writes an orphan audit row (there are no foreign-key constraints). Check that the case exists first.
-- `partially_paid` and any `payment.captured` mark the full amount recovered. Check the amount.
+- `payment.captured` marks the full amount recovered. Check the amount. (The GET callback already ignores `partially_paid`, #6.)
 - Make the GET Payment Link callback display-only and let the signed POST `payment_link.paid` be the source of truth.
 
 ### 8. Unit tests for the decision core (S–M)
 - Taxonomy: classification and confidence/conflict signals, for example `payment_cancelled` with an active mandate gives "conflicting" at 0.5.
 - Stop-rule ordering: first match wins, and `already_paid` outranks `uneconomic`.
 - Policy ladder rungs per cause.
-- Signature helpers: wrong-length and missing-parameter cases.
+- Signature helpers: missing-parameter cases (wrong-length is covered by #6).
 
 These protect the "policy graph, not the LLM, picks the action" claim.
 
