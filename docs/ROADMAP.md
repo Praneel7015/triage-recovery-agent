@@ -20,12 +20,12 @@ Sizes: **XS** < 1h · **S** half a day · **M** 1–2 days · **L** most of a we
 
 ## P0: before anything else
 
-### 1. Stop forged requests from marking cases recovered (S)
-Two paths can mark a case `recovered` (and write a `payment_received` audit row) for a case that was never paid:
-- `GET /api/webhooks/razorpay` checks the Payment Link signature, then marks the case named by the **unsigned** `case_id` query param. One genuine paid callback, replayed with a different `case_id`, closes any case.
-- `POST /api/live/confirm` checks the Checkout signature over `order_id|payment_id`, but never checks that the order belongs to `caseId`. One genuine Checkout payment closes any case.
+### 1. Stop forged requests from marking cases recovered (S) — done in #6
+Before #6, two paths could mark a case `recovered` (and write a `payment_received` audit row) for a case that was never paid:
+- `GET /api/webhooks/razorpay` checked the Payment Link signature, then marked the case named by the **unsigned** `case_id` query param. One genuine paid callback, replayed with a different `case_id`, closed any case.
+- `POST /api/live/confirm` checked the Checkout signature over `order_id|payment_id`, but never checked that the order belonged to `caseId`. One genuine Checkout payment closed any case.
 
-The audit trail is the core of the product, so this comes first. The fix: never use a request-supplied `caseId` as the payment-to-case binding. For Payment Links, resolve the case from the signed link id / reference id. For Checkout, the HMAC covers only `order_id|payment_id`, so fetch that order from Razorpay on the server and require its `notes.case_id` and amount to match. Add a test harness with regression tests. **Done in #6.**
+The audit trail is the core of the product, so this came first. #6 stopped using a request-supplied `caseId` as the payment-to-case binding. Payment Link callbacks now resolve the case from the signed link id / reference id and ignore `partially_paid`. Checkout confirm fetches the order from Razorpay on the server and requires its `notes.case_id` and amount to match the case. `npm test` has regression tests for both spoofs.
 
 ### 2. Get lint green and add the CI/CD stack (M)
 **In progress: the CI PR.** Lint errors mean new bugs hide in the noise, and nothing checks a PR before merge. The repo also handles Razorpay keys, so secret scanning matters. The plan:
@@ -67,7 +67,7 @@ SQLite on local disk is fine on a VM with a volume (Fly.io, Railway) but is lost
 These protect the "policy graph, not the LLM, picks the action" claim.
 
 ### 9. Eval rigour and labelling (M)
-- The holdout is 18 cases, and `sufficientSample` accepts any holdout of 10 or more, so the eval prints "Sample supports a causal claim" on 18. Raise the threshold or report a confidence interval, and consider a larger batch.
+- The holdout is 18 cases, and `sufficientSample` only requires `holdoutCases >= 10 && treatedCases >= 30` (here 18 and 150), so the eval prints "Sample supports a causal claim" on 18. Raise the threshold or report a confidence interval, and consider a larger batch.
 - Simulator success rates (`adapters/simulator.ts`), natural-recovery rates (`engine/holdout.ts`) and channel costs (`engine/economics.ts`) are hand-set. Label them as assumptions in the UI and README.
 - Add a risk-adjusted net metric that prices DND, opt-out and NPCI violations, rather than leaving them as a separate column.
 - Compliance property P6 reads `Date.now()`, so its result depends on the day it runs. Pin the eval clock.
