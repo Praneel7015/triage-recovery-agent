@@ -4,6 +4,7 @@ import { cases } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import Razorpay from "razorpay";
 import { migrate } from "@/db/migrate";
+import { errorMessage } from "@/lib/errorMessage";
 
 migrate();
 
@@ -64,6 +65,6 @@ export async function POST(request: Request) {
       caseId: c.id,
     });
   } catch (err) {
-    return NextResponse.json({ error: (err as Error).message }, { status: 502 });
+    return NextResponse.json({ error: errorMessage(err) }, { status: 502 });
   }
 }

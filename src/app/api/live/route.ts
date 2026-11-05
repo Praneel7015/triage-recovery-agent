@@ -5,6 +5,7 @@ import { eq } from "drizzle-orm";
 import { createPaymentLink } from "@/adapters/razorpay";
 import { randomUUID } from "crypto";
 import { migrate } from "@/db/migrate";
+import { errorMessage } from "@/lib/errorMessage";
 
 migrate();
 
@@ -80,9 +81,9 @@ export async function POST(request: Request) {
         ts: Math.floor(Date.now() / 1000),
         actor: "executor",
         event: "executor_failure",
-        detail: `Payment Link creation failed: ${(err as Error).message}. Escalating to human.`,
+        detail: `Payment Link creation failed: ${errorMessage(err)}. Escalating to human.`,
       }).run();
     }
-    return NextResponse.json({ ok: false, error: (err as Error).message, escalated: true }, { status: 502 });
+    return NextResponse.json({ ok: false, error: errorMessage(err), escalated: true }, { status: 502 });
   }
 }

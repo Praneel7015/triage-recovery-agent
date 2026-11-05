@@ -6,6 +6,7 @@ import { classifyCause } from "@/engine/taxonomy";
 import { runAgent } from "@/engine/agent";
 import { createPaymentLink } from "@/adapters/razorpay";
 import { costOfAction, channelForAction } from "@/engine/economics";
+import { errorMessage } from "@/lib/errorMessage";
 
 interface RazorpayPaymentEntity {
   id?: string;
@@ -268,7 +269,7 @@ export async function kickLiveCase(caseId: string): Promise<void> {
         db.insert(auditLog).values({
           id: randomUUID(), caseId, ts: now,
           actor: "executor", event: "executor_failure",
-          detail: `Payment Link creation failed: ${(err as Error).message}. Checkout.js on the case file still works if keys are set.`,
+          detail: `Payment Link creation failed: ${errorMessage(err)}. Checkout.js on the case file still works if keys are set.`,
         }).run();
       }
     }
@@ -276,7 +277,7 @@ export async function kickLiveCase(caseId: string): Promise<void> {
     db.insert(auditLog).values({
       id: randomUUID(), caseId, ts: now,
       actor: "executor", event: "kick_failed",
-      detail: `Auto-campaign failed: ${(err as Error).message}`,
+      detail: `Auto-campaign failed: ${errorMessage(err)}`,
     }).run();
     // Release the claim if nothing was recorded, so a later kick can retry.
     db.update(cases).set({ status: "open", updatedAt: now })
