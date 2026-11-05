@@ -18,15 +18,15 @@
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
-    "@ai-sdk/openai": "^4.0.46",
+    "@ai-sdk/openai": "^4.0.106",
     "better-sqlite3": "^13.0.3",
     "dotenv": "^17.4.2",
-    "drizzle-orm": "^0.45.2",
+    "drizzle-orm": "^0.45.4",
     "next": "16.3.2",
     "razorpay": "^2.9.8",
     "react": "19.2.8",
     "react-dom": "19.2.8",
-    "tsx": "^4.23.12"
+    "tsx": "^4.23.15"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
