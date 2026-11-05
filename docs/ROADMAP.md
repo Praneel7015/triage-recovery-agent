@@ -1,0 +1,84 @@
+# Roadmap
+
+Written 3 Nov 2026 after an audit of PR #1 (now merged). Updated 5 Nov 2026: P0 #1 and #4 are done, and P0 #2 is the CI PR.
+
+Sizes: **XS** < 1h · **S** half a day · **M** 1–2 days · **L** most of a week.
+
+## Where things stand
+
+| Check | Result |
+|---|---|
+| `tsc --noEmit` | passes |
+| `next build` | passes (13 routes) |
+| `npm run compliance` | 15/15 properties hold over 168 campaigns |
+| `npm run eval` (no keys) | runs; Triage 78/150 recovered, 29.8 pp lift, 0 violations; Naive 90/150, 37.8 pp, 157 violations |
+| `eslint` | **fails on `main`** (`no-explicit-any`, `react-hooks/set-state-in-effect`); 0 errors once the CI PR lands |
+| Tests | `npm test`: 20 `node:test` cases (recovery spoofing, live-ingest idempotency, eval-cache provenance) |
+| CI | none on `main` yet; added by the CI PR |
+
+`npm run eval` needs no keys. Without `LLM_API_KEY` the agent falls back to taxonomy-only diagnosis and the headline numbers are unchanged.
+
+## P0: before anything else
+
+### 1. Stop forged requests from marking cases recovered (S) — done in #6
+Before #6, two paths could mark a case `recovered` (and write a `payment_received` audit row) for a case that was never paid:
+- `GET /api/webhooks/razorpay` checked the Payment Link signature, then marked the case named by the **unsigned** `case_id` query param. One genuine paid callback, replayed with a different `case_id`, closed any case.
+- `POST /api/live/confirm` checked the Checkout signature over `order_id|payment_id`, but never checked that the order belonged to `caseId`. One genuine Checkout payment closed any case.
+
+The audit trail is the core of the product, so this came first. #6 stopped using a request-supplied `caseId` as the payment-to-case binding. Payment Link callbacks now resolve the case from the signed link id / reference id and ignore `partially_paid`. Checkout confirm fetches the order from Razorpay on the server and requires its `notes.case_id` and amount to match the case. `npm test` has regression tests for both spoofs.
+
+### 2. Get lint green and add the CI/CD stack (M)
+**In progress: the CI PR.** Lint errors mean new bugs hide in the noise, and nothing checks a PR before merge. The repo also handles Razorpay keys, so secret scanning matters. The plan:
+- Make eslint pass: type the Drizzle enum columns and the Razorpay SDK calls, and replace the `setState`-in-effect patterns.
+- `ci.yml`: lint, `tsc`, tests with coverage uploaded to Codecov, `compliance`, keyless `eval` and build, with no real keys. Plus a gitleaks secret-scan job over full history.
+- CodeQL, OpenSSF Scorecard, Release Please (node), and grouped weekly Dependabot for npm and actions.
+- CodeRabbit with path instructions: `policy.ts` is the only place an action is selected, and compliance rules are hard constraints.
+- Pin every action to a commit SHA. Add a PR template and README badges.
+
+Settings only Praneel can change (`CODECOV_TOKEN` is already set): letting Actions create PRs (Release Please needs it), code scanning, and branch protection on `main`.
+
+### 3. Re-baseline the published numbers (XS, needs Praneel's decision)
+The resume and pitch quote **+32-pt lift** and **64% fewer messages**. Those came from the 23 Aug eval (82/150 recovered, 32.4 pp). The code on PR #1 gives **29.8 pp** and **146 vs 426 touches (66% fewer)**, both with and without an LLM key. The committed `data/last-eval.json` (1 Sep) already shows 29.8 pp. Either re-run with the tested Groq config and commit the result, or update the quoted figures. Don't tune the simulator to recover the old number.
+
+### 4. Land PR #1 and tidy `main` (XS)
+**Done.** #1 was squash-merged, followed by #6 (spoofing fix) and #5 (fixes from #1's review). Remaining: reset local `main` to `origin/main`.
+
+## P1: needed for a real deploy
+
+### 5. Auth on the control tower and mutating routes (M)
+Every route is public. `POST /api/eval` starts a ~10-minute LLM job. `POST /api/demo/trigger` creates real (test-mode) Payment Links. `GET /api/cases` returns customer names, phones and emails. Add login for the UI (or a basic-auth gate as a first step), and keep only the webhook public.
+
+### 6. Persistence that survives a deploy (M–L)
+SQLite on local disk is fine on a VM with a volume (Fly.io, Railway) but is lost on serverless hosts. `migrate()` runs at import time in every route module. Pick a host first. Then either keep SQLite on a volume or move to Turso or Postgres via Drizzle, and switch to `drizzle-kit` migrations.
+
+### 7. Webhook hardening (M)
+- Deduplicate on `x-razorpay-event-id`. Razorpay retries; `markCaseRecovered` and `kickLiveCase` (claim with lease and token, #5) are idempotent, the rest of the handler is not.
+- `kickLiveCase` is fire-and-forget (`void`). On serverless it can be killed after the response is sent, so it needs a durable job.
+- `payment.failed` with an unknown `notes.case_id` writes an orphan audit row (there are no foreign-key constraints). Check that the case exists first.
+- `payment.captured` marks the full amount recovered. Check the amount. (The GET callback already ignores `partially_paid`, #6.)
+- Make the GET Payment Link callback display-only and let the signed POST `payment_link.paid` be the source of truth.
+
+### 8. Unit tests for the decision core (S–M)
+- Taxonomy: classification and confidence/conflict signals, for example `payment_cancelled` with an active mandate gives "conflicting" at 0.5.
+- Stop-rule ordering: first match wins, and `already_paid` outranks `uneconomic`.
+- Policy ladder rungs per cause.
+- Signature helpers: missing-parameter cases (wrong-length is covered by #6).
+
+These protect the "policy graph, not the LLM, picks the action" claim.
+
+### 9. Eval rigour and labelling (M)
+- The holdout is 18 cases, and `sufficientSample` only requires `holdoutCases >= 10 && treatedCases >= 30` (here 18 and 150), so the eval prints "Sample supports a causal claim" on 18. Raise the threshold or report a confidence interval, and consider a larger batch.
+- Simulator success rates (`adapters/simulator.ts`), natural-recovery rates (`engine/holdout.ts`) and channel costs (`engine/economics.ts`) are hand-set. Label them as assumptions in the UI and README.
+- Add a risk-adjusted net metric that prices DND, opt-out and NPCI violations, rather than leaving them as a separate column.
+- Compliance property P6 reads `Date.now()`, so its result depends on the day it runs. Pin the eval clock.
+
+## P2: product depth and hygiene
+
+| # | Item | Why | Size |
+|---|---|---|---|
+| 10 | Real outreach channels (WhatsApp/SMS provider), DND registry lookup, consent capture | Live path is single-shot Payment Link only; outreach is simulated | L |
+| 11 | Multi-step live campaigns via a scheduler/queue | The 30-day ladder exists only in eval | L |
+| 12 | Remove dead code and unused imports (`selectStep`, `costOfAction`, `naturalRecoveryRate`, `scripts/probe-*`) | Noise | XS |
+| 13 | Dev setup note: on Node 24 / npm 11.19 `npm ci` tries to `node-gyp rebuild` better-sqlite3 even though its tarball ships `prebuilds/win32-x64.node`; `npm ci --ignore-scripts` works | New machines fail to install without Visual Studio | XS |
+| 14 | `npm audit`: sharp advisories (libheif, librsvg) via Next | Dependency hygiene | XS |
+| 15 | Structured logging and error tracking on the live path | Audit log covers business events only | S |
