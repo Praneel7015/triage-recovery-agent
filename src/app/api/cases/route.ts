@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db/client";
-import { cases } from "@/db/schema";
-import { eq, desc, and, not } from "drizzle-orm";
+import { cases, type FailureCause } from "@/db/schema";
+import { eq, desc, and, not, type SQL } from "drizzle-orm";
 import { migrate } from "@/db/migrate";
 
 migrate();
@@ -16,24 +16,18 @@ export async function GET(request: Request) {
     const cause    = url.searchParams.get("cause");
     const fallback = url.searchParams.get("fallback");
 
-    let query = db.select().from(cases).$dynamic();
-
-    const clauses = [];
+    const clauses: SQL[] = [];
     if (batchId) clauses.push(eq(cases.batchId, batchId));
     else if (strategy === "naive") clauses.push(eq(cases.isNaiveRun, true));
     else if (strategy === "triage") clauses.push(eq(cases.isNaiveRun, false));
-    if (cause) clauses.push(eq(cases.cause, cause as any));
+    if (cause) clauses.push(eq(cases.cause, cause as FailureCause));
     if (fallback === "1") clauses.push(not(eq(cases.llmFallbacks, 0)));
 
-    if (clauses.length === 1) {
-      query = query.where(clauses[0]) as any;
-    } else if (clauses.length > 1) {
-      query = query.where(and(...clauses)) as any;
-    }
-
-    const all = (query as any).orderBy(desc(cases.updatedAt)).limit(200).all();
+    const all = db.select().from(cases)
+      .where(and(...clauses))
+      .orderBy(desc(cases.updatedAt)).limit(200).all();
     return NextResponse.json(all);
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+  } catch (err) {
+    return NextResponse.json({ error: (err as Error).message }, { status: 500 });
   }
 }

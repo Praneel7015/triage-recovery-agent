@@ -1,0 +1,89 @@
+language: en-US
+
+reviews:
+  profile: chill
+  high_level_summary: true
+  poem: false
+  review_status: true
+  path_filters:
+    - "!**/package-lock.json"
+    - "!.next/**"
+  path_instructions:
+    - path: "src/engine/policy.ts"
+      instructions: |
+        This is the ONLY place a RecoveryAction is selected. Flag any change
+        that lets another module (agent, sequencer, LLM adapters, API routes)
+        choose or override an action, and any new action outside the closed
+        RecoveryAction catalog in src/db/schema.ts.
+    - path: "src/{engine/agent.ts,engine/sequencer.ts,adapters/ingest.ts}"
+      instructions: |
+        These assemble policy inputs and carry the selected action onward, but
+        must not choose one themselves. The action must come unchanged from
+        selectAction/selectStep in src/engine/policy.ts, and only a stop rule in
+        src/engine/stops.ts may veto it. Flag any code here that picks, rewrites
+        or defaults a RecoveryAction, or that feeds policy different inputs to
+        steer the result. (src/engine/naive.ts is the deliberately policy-free
+        baseline and is exempt.)
+    - path: "src/engine/stops.ts"
+      instructions: |
+        The ONLY place an action can be vetoed. Rules are ordered and the first
+        match wins (e.g. already_paid must outrank uneconomic). Flag reordering,
+        removed rules, or a stop that is no longer permanent without a reason.
+    - path: "src/{engine,eval}/**/*.ts"
+      instructions: |
+        Compliance rules are hard constraints, not tradeoffs: never contact a DND
+        or opted-out customer, never retry a revoked mandate, at most 3 auto-debit
+        retries (NPCI cap), no contact during a live bank/PSP outage, never
+        contact before a promise-to-pay date, voice only with consent. Flag any
+        change that weakens one of these or loosens a property in
+        src/eval/compliance.ts to make it pass. Changes that shift eval numbers
+        should come with a re-run data/last-eval.json.
+    - path: "src/adapters/{llm,llmClient,conversation}.ts"
+      instructions: |
+        The LLM writes diagnosis copy, Hinglish outreach and intent extraction.
+        It must never select an action, move money, or get a tool surface that
+        touches payments. Every call must fail closed to the deterministic
+        fallback (no throws, bounded timeout).
+    - path: "src/{adapters/razorpay.ts,app/api/webhooks/**,app/api/live/**,lib/markRecovered.ts,lib/confirmCheckout.ts}"
+      instructions: |
+        Money path. A case may be marked recovered only from data Razorpay
+        signed for that case (webhook HMAC, Payment Link callback signature over
+        signed fields, Checkout signature plus the order's notes.case_id and
+        amount). Flag trust in unsigned query/body fields, signature compares
+        that can throw, non-idempotent writes, secrets in logs or responses, and
+        anything that assumes live (non-test) keys.
+    - path: "src/adapters/simulator.ts"
+      instructions: |
+        Simulator success rates are hand-set assumptions shared by both arms.
+        Flag changes that favour one arm (Triage vs Naive) over the other.
+    - path: "src/app/**/*.tsx"
+      instructions: |
+        Next.js 16 App Router + React 19. Flag hook dependency bugs, setState
+        called synchronously in effects, and customer PII rendered where it
+        is not needed.
+    - path: "test/**"
+      instructions: Prefer focused node:test cases that cover error paths and security guards.
+  pre_merge_checks:
+    # The 80% docstring target is CodeRabbit's default, not a repo rule.
+    docstrings:
+      mode: "off"
+  auto_review:
+    enabled: true
+    drafts: false
+    # Stacked PRs target feature branches, so review every base branch.
+    base_branches:
+      - ".*"
+  tools:
+    eslint:
+      enabled: true
+    gitleaks:
+      enabled: true
+    actionlint:
+      enabled: true
+    yamllint:
+      enabled: true
+    markdownlint:
+      enabled: true
+
+chat:
+  auto_reply: true

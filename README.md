@@ -1,5 +1,11 @@
 # Triage — Revenue Recovery Agent
 
+[![CI](https://github.com/Praneel7015/triage-recovery-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/Praneel7015/triage-recovery-agent/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/Praneel7015/triage-recovery-agent/actions/workflows/codeql.yml/badge.svg)](https://github.com/Praneel7015/triage-recovery-agent/actions/workflows/codeql.yml)
+[![codecov](https://codecov.io/gh/Praneel7015/triage-recovery-agent/graph/badge.svg)](https://codecov.io/gh/Praneel7015/triage-recovery-agent)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/Praneel7015/triage-recovery-agent/badge)](https://scorecard.dev/viewer/?uri=github.com/Praneel7015/triage-recovery-agent)
+[![CodeRabbit Pull Request Reviews](https://img.shields.io/coderabbit/prs/github/Praneel7015/triage-recovery-agent?label=CodeRabbit+Reviews&labelColor=171717&color=FF570A)](https://coderabbit.ai)
+
 > **Razorpay AI Buildathon 2026 · Track 03: AI Revenue Recovery**
 
 Triage is a bounded recovery agent for Indian Autopay failures. It diagnoses *why* a payment failed, picks the intervention that failure earned, and refuses the interventions a listed company is not allowed to run.
@@ -11,6 +17,7 @@ npm install
 cp .env.example .env          # RAZORPAY_*, LLM_API_KEY, RAZORPAY_WEBHOOK_SECRET
 
 npm run compliance            # 15 invariants — must pass
+npm test                      # unit + regression tests
 npm run eval                  # 168-case batch; writes data/last-eval.json
 npm run build && npm start    # record the pitch against this, not `next dev`
 npm run dev                   # http://localhost:3000 (dev only)
@@ -50,6 +57,7 @@ Triage is not a money-maxing bot. It is a fiduciary decision engine. TRAI, NPCI,
 | Command | Purpose |
 |---|---|
 | `npm run compliance` | 15 property checks over every campaign. Run this first. |
+| `npm test` | Unit and regression tests (`node:test` via tsx, temp SQLite). `npm run test:coverage` writes `lcov.info`. |
 | `npm run eval` | 168 cases through Triage + Naive. Prints economics, lift, compliance. Writes `data/last-eval.json`. |
 | `npm run dev` | Control tower. Ledger falls back to `last-eval.json` if no DB run exists. |
 | `npm run build` | Production build |

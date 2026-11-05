@@ -1,18 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState, useSyncExternalStore } from "react";
+
+const noopSubscribe = () => () => {};
+const detectSpeech = () =>
+  "speechSynthesis" in window && typeof SpeechSynthesisUtterance !== "undefined";
 
 export function VoicePlayer({ script }: { script: string }) {
   const [speaking, setSpeaking] = useState(false);
-  const [supported, setSupported] = useState<boolean | null>(null);
-
-  useEffect(() => {
-    setSupported(
-      typeof window !== "undefined" &&
-      "speechSynthesis" in window &&
-      typeof SpeechSynthesisUtterance !== "undefined",
-    );
-  }, []);
+  // null on the server, so SSR and the first client render match.
+  const supported = useSyncExternalStore<boolean | null>(noopSubscribe, detectSpeech, () => null);
 
   const speak = useCallback(() => {
     if (!supported) return;

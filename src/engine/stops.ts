@@ -1,5 +1,5 @@
 import type { RecoveryAction, StopCode } from "@/db/schema";
-import { costOfAction, isEconomicallySane, channelForAction } from "./economics";
+import { isEconomicallySane } from "./economics";
 
 export interface StopInput {
   action: RecoveryAction;

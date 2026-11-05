@@ -6,6 +6,7 @@ import { classifyCause } from "@/engine/taxonomy";
 import { runAgent } from "@/engine/agent";
 import { createPaymentLink } from "@/adapters/razorpay";
 import { costOfAction, channelForAction } from "@/engine/economics";
+import { errorMessage } from "@/lib/errorMessage";
 
 interface RazorpayPaymentEntity {
   id?: string;
@@ -185,10 +186,10 @@ export async function kickLiveCase(caseId: string): Promise<void> {
     // kick reclaimed the case (or already recorded an action), this write changes
     // nothing and this kick stops before any step or Payment Link.
     const recorded = db.update(cases).set({
-      cause: result.cause as any,
+      cause: result.cause,
       diagnosisNarrative: result.diagnosisNarrative,
-      actionTaken: result.action as any,
-      stopCode: (result.stopCode ?? null) as any,
+      actionTaken: result.action,
+      stopCode: result.stopCode ?? null,
       status: result.blocked ? "open" : "in_progress",
       confidenceScore: result.confidenceScore,
       llmCalls: result.llmUsed ? 1 : 0,
@@ -218,14 +219,14 @@ export async function kickLiveCase(caseId: string): Promise<void> {
       caseId,
       day: 0,
       stepIndex: 0,
-      action: result.action as any,
+      action: result.action,
       channel: channelForAction(result.action),
       costPaise: result.blocked ? 0 : costOfAction(result.action),
       rationale: result.blocked
         ? result.stopReason ?? "Blocked by a stop rule."
         : `Live first action. ${result.action === "do_nothing" ? "Silence is the intervention." : "Awaiting payment."}`,
       blocked: result.blocked,
-      stopCode: (result.stopCode ?? null) as any,
+      stopCode: result.stopCode ?? null,
       stopReason: result.stopReason ?? null,
       outcome: result.blocked ? "blocked" : "waiting",
       outcomeReason: result.blocked
@@ -264,19 +265,19 @@ export async function kickLiveCase(caseId: string): Promise<void> {
           actor: "executor", event: "payment_link_created",
           detail: `Auto-created Razorpay Payment Link: ${link.short_url}`,
         }).run();
-      } catch (err: any) {
+      } catch (err) {
         db.insert(auditLog).values({
           id: randomUUID(), caseId, ts: now,
           actor: "executor", event: "executor_failure",
-          detail: `Payment Link creation failed: ${err.message}. Checkout.js on the case file still works if keys are set.`,
+          detail: `Payment Link creation failed: ${errorMessage(err)}. Checkout.js on the case file still works if keys are set.`,
         }).run();
       }
     }
-  } catch (err: any) {
+  } catch (err) {
     db.insert(auditLog).values({
       id: randomUUID(), caseId, ts: now,
       actor: "executor", event: "kick_failed",
-      detail: `Auto-campaign failed: ${err.message}`,
+      detail: `Auto-campaign failed: ${errorMessage(err)}`,
     }).run();
     // Release the claim if nothing was recorded, so a later kick can retry.
     db.update(cases).set({ status: "open", updatedAt: now })

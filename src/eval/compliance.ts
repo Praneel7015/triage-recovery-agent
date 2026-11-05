@@ -1,6 +1,6 @@
 import "dotenv/config";
 import { readFileSync } from "fs";
-import { runCampaign, type CampaignResult, type CampaignStep } from "@/engine/sequencer";
+import { runCampaign, type CampaignResult } from "@/engine/sequencer";
 import { MAX_CAMPAIGN_DAYS, MAX_TOUCHES, NPCI_MAX_RETRIES, AMOUNT_FLOOR_PAISE } from "@/engine/stops";
 import { MAX_STEPS } from "@/engine/sequencer";
 import type { CaseInput } from "@/engine/agent";

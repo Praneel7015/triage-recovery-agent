@@ -95,7 +95,7 @@ export default function CaseFilePage({ params }: { params: Promise<{ id: string 
     );
   }
 
-  if (!c || (c as any).error) {
+  if (!c || "error" in c) {
     return (
       <div className="page">
         <div className="empty panel">
