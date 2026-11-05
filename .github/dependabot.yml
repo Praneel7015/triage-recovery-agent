@@ -6,6 +6,11 @@ updates:
       interval: weekly
       day: monday
     open-pull-requests-limit: 5
+    ignore:
+      # eslint-config-next bundles eslint-plugin-react, which crashes on ESLint 10
+      # (context.getFilename removed). Drop this once eslint-config-next supports 10.
+      - dependency-name: eslint
+        update-types: ["version-update:semver-major"]
     groups:
       next-react:
         patterns: ["next", "eslint-config-next", "react", "react-dom", "@types/react", "@types/react-dom"]
